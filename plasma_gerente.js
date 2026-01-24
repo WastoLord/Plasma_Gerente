@@ -231,7 +231,8 @@ function tratarComandosCliente(username, messageRaw) {
     else if (message === 'confirmar') {
         const negociacao = db.negociacoes[username]
         if (negociacao && negociacao.estado === 'aguardando_confirmacao') {
-            bot.chat(`/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)} (/pix ${CONFIG.precoSemana} ${bot.username}).`)
+            // CORREÇÃO: Ordem /pix <Nick> <Valor>
+            bot.chat(`/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)} (/pix ${bot.username} ${CONFIG.precoSemana}).`)
             negociacao.estado = 'aguardando_pagamento'
             salvarDB()
         } else {
@@ -287,8 +288,9 @@ function reembolsarSeguro(cliente, valor, motivo) {
 
     console.log(`💸 Iniciando reembolso para ${cliente}...`)
 
+    // CORREÇÃO: Ordem /pix <Nick> <Valor>
     enviarSequencia([
-        `/pix ${valor} ${cliente}`,
+        `/pix ${cliente} ${valor}`,
         `/tell ${cliente} Reembolso enviado: ${motivo}.`
     ], 4000)
 
@@ -313,7 +315,8 @@ function verificarPendencias() {
         pendentes.forEach(p => {
             console.log(`- ${p.data}: ${p.cliente} -> $${p.valor} (Motivo: ${p.motivo})`)
         })
-        console.log("Use '/pix Valor Nick' manualmente para resolver.")
+        // CORREÇÃO: Texto de ajuda no log corrigido para ordem certa
+        console.log("Use '/pix Nick Valor' manualmente para resolver.")
     }
     console.log("-----------------------------------------------")
 }

@@ -1,145 +1,104 @@
-'use strict'
 // USO: node worker_loader.js <Dono> <NickBot> <LojaID>
-const mineflayer = require('mineflayer')
-const readline = require('readline')
-const fs = require('fs')
-const { pathfinder } = require('mineflayer-pathfinder')
-const pvp = require('mineflayer-pvp').plugin
-const path = require('path')
+const mineflayer = require('mineflayer');
+const readline = require('readline');
+const fs = require('fs');
+const { pathfinder } = require('mineflayer-pathfinder');
+const pvp = require('mineflayer-pvp').plugin;
 
-// --- LEITURA DE ARGUMENTOS ---
-const args = process.argv.slice(2)
-const DONO = args[0] || 'WastoLord_13'
-const BOT_NICK = args[1] || 'Plasma_Teste'
-const LOJA_ID = args[2] || 'loja'
+// --- ARGUMENTOS ---
+const args = process.argv.slice(2);
+if (args.length < 2) { console.log("❌ [Loader] Erro: Argumentos insuficientes."); process.exit(1); }
+const DONO = args[0];
+const BOT_NICK = args[1];
+const LOJA_ID = args[2] || 'loja';
 
-console.log(`🤖 Iniciando Worker Simples. Dono: ${DONO} | Nick: ${BOT_NICK}`)
+console.log(`🤖 [Loader] Iniciando Modular: ${BOT_NICK} (Dono: ${DONO})`);
 
-// --- CONFIGURAÇÃO CONNECT ---
 const connConfig = {
   host: 'jogar.craftsapiens.com.br',
   port: 25565,
-  username: BOT_NICK,
+  username: BOT_NICK, 
   auth: 'offline',
-  version: '1.21.4'
-}
+  version: '1.21.4',
+  checkTimeoutInterval: 120 * 1000 
+};
 
-const LOGIC_FILE = path.resolve(__dirname, './worker_logic.js')
+const LOGIC_FILE = './worker_logic.js';
+let bot = null;
+let currentLogic = null;
+let reconnectTimer = null;
+let isReconnecting = false;
 
-let bot = null
-let currentLogic = null
+const BLOQUEAR_LOGS = ['PartialReadError', 'protodef', 'physicTick', 'Chunk size', 'ECONNRESET', 'ETIMEDOUT'];
+const originalStderrWrite = process.stderr.write;
+process.stderr.write = function(chunk) { 
+    if (BLOQUEAR_LOGS.some(t => chunk.toString().includes(t))) return false;
+    return originalStderrWrite.apply(process.stderr, arguments);
+};
+process.on('uncaughtException', () => {});
 
-// =========================================================================
-// SILENCIADOR
-// =========================================================================
-const BLOQUEAR_LOGS = [
-  'PartialReadError', 'Read error for undefined', 'protodef', 'packet_world_particles',
-  'eval at compile', 'ExtensionError', 'Method Not Allowed', 'DeprecationWarning',
-  'punycode', 'physicTick', 'src/compiler.js', 'src/utils.js',
-  'Chunk size is', 'partial packet', 'entity_teleport', 'buffer :',
-  'was read', 'ECONNRESET', 'ETIMEDOUT'
-]
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+rl.on('line', (input) => { 
+    if (input.trim() === 'encerrar_contrato') {
+        if (currentLogic?.encerrar) currentLogic.encerrar(bot);
+        else process.exit(0);
+    } else if (bot?.entity) bot.chat(input);
+});
 
-function deveBloquear(str) {
-  if (!str) return false
-  return BLOQUEAR_LOGS.some(termo => str.toString().includes(termo))
-}
-
-const originalStderrWrite = process.stderr.write
-process.stderr.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStderrWrite.apply(process.stderr, arguments) }
-const originalConsoleError = console.error
-console.error = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalConsoleError.apply(console, args) }
-process.on('uncaughtException', (err) => { if (err && err.code === 'ECONNRESET') return console.log('Conexão resetada.'); console.error(err) })
-process.on('unhandledRejection', (r) => { console.error('UnhandledRejection', r) })
-// =========================================================================
-
-// --- INPUT MANUAL ---
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-rl.on('line', (input) => {
-  if (input.trim() === 'encerrar_contrato') {
-    if (currentLogic && currentLogic.encerrar) {
-      try { currentLogic.encerrar(bot) } catch (e) {}
-    } else {
-      if (bot) try { bot.quit() } catch (e) {}
-      process.exit()
-    }
-  } else if (bot?.entity) {
-    try { bot.chat(input) } catch (e) {}
-  }
-})
-
-// --- INICIALIZAÇÃO ---
 function iniciarBot() {
-  console.log(`🔌 Conectando ${BOT_NICK}...`)
+    if (isReconnecting) return;
+    isReconnecting = true;
+    if (bot) { bot.removeAllListeners(); try { bot.quit() } catch(e){} bot = null; }
+    if (reconnectTimer) clearTimeout(reconnectTimer);
 
-  bot = mineflayer.createBot(connConfig)
+    console.log(`🔌 Conectando...`);
+    try {
+        bot = mineflayer.createBot(connConfig);
+        bot.loadPlugin(pathfinder);
+        bot.loadPlugin(pvp);
 
-  bot.loadPlugin(pathfinder)
-  bot.loadPlugin(pvp)
+        bot.once('spawn', () => {
+            console.log(`✅ Conectado!`);
+            carregarLogica();
+            isReconnecting = false;
+        });
 
-  bot.on('login', () => {
-    console.log('🔑 Login de rede aceito. Entrando...')
-  })
+        bot.on('end', () => { console.log(`🔻 Caiu. 30s...`); agendarReconexao(30000); });
+        
+        bot.on('kicked', (r) => {
+            const m = JSON.stringify(r).toLowerCase();
+            const delay = (m.includes('too fast') || m.includes('already connected')) ? 60000 : 30000;
+            console.log(`❌ Kicked. ${delay/1000}s...`);
+            agendarReconexao(delay);
+        });
 
-  bot.once('spawn', () => {
-    console.log(`✅ ${BOT_NICK} online e spawnado!`)
-    carregarLogica()
-  })
+    } catch (e) { agendarReconexao(30000); }
+}
 
-  bot.on('end', (reason) => {
-    console.log(`❌ Conexão perdida: ${reason}. Reconectando em 15s...`)
-    try { if (currentLogic && currentLogic.encerrar) currentLogic.encerrar(bot) } catch (e) {}
-    setTimeout(iniciarBot, 15000)
-  })
-
-  bot.on('error', (err) => {
-    if (err && err.code === 'ECONNRESET') return
-    if (!deveBloquear(err?.message || '')) {
-      console.log(`🚨 Erro: ${err?.message || err}`)
-    }
-  })
+function agendarReconexao(ms) {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    isReconnecting = false; 
+    reconnectTimer = setTimeout(iniciarBot, ms);
 }
 
 function carregarLogica() {
-  try {
-    if (currentLogic && typeof currentLogic.encerrar === 'function') {
-      console.log('♻️ Encerrando lógica antiga antes de recarregar...')
-      try { currentLogic.encerrar(bot) } catch (e) { console.error('Erro ao encerrar lógica antiga', e) }
-    }
-  } catch (e) {}
-
-  delete require.cache[require.resolve(LOGIC_FILE)]
-  try {
-    const novaLogica = require(LOGIC_FILE)
-    if (novaLogica.start) {
-      novaLogica.start(bot, { dono: DONO, loja: LOJA_ID })
-      currentLogic = novaLogica
-      console.log('✨ Lógica (re)carregada com sucesso.')
-    } else {
-      console.warn('Arquivo de lógica não exporta start().')
-    }
-  } catch (e) { console.log("Erro ao carregar lógica:", e) }
+    if (currentLogic && currentLogic.stop) try { currentLogic.stop(bot) } catch(e) {}
+    delete require.cache[require.resolve(LOGIC_FILE)];
+    try {
+        const novaLogica = require(LOGIC_FILE);
+        if (novaLogica.start) {
+            novaLogica.start(bot, { dono: DONO, loja: LOJA_ID });
+            currentLogic = novaLogica;
+        }
+    } catch (e) { console.log("Erro lógica:", e); }
 }
 
-// Watcher para atualizar lógica sem reiniciar
-let debounce = false
-try {
-  fs.watch(LOGIC_FILE, (e, f) => {
-    if (!f) return
-    if (debounce) return
-    debounce = true
-    setTimeout(() => debounce = false, 500)
-    if (bot?.entity) carregarLogica()
-  })
-} catch (e) {
-  console.warn('Watcher de arquivo não pôde ser iniciado:', e)
-}
+let debounce = false;
+fs.watch(LOGIC_FILE, (e, f) => {
+    if (!f || debounce) return;
+    debounce = true;
+    setTimeout(() => debounce = false, 500);
+    if (bot?.entity) carregarLogica();
+});
 
-// lidar com sinais para terminar limpo
-process.on('SIGINT', () => {
-  console.log('SIGINT recebido — encerrando...')
-  try { if (currentLogic && currentLogic.encerrar) currentLogic.encerrar(bot) } catch (e) {}
-  setTimeout(() => process.exit(0), 2000)
-})
-
-iniciarBot()
+iniciarBot();

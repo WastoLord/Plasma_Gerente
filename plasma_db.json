@@ -1,10 +1,10 @@
 {
   "clientes": {
-    "teste": {
-      "botName": "Plasma_teste",
-      "dataInicio": 1769257103050,
-      "dataFim": 1769260703050,
-      "lojaId": "loja"
+    "wastolord_13": {
+      "botName": "Plasma_wastolor",
+      "dataInicio": 1769260820425,
+      "dataFim": 1769264420425,
+      "lojaId": "plasma"
     }
   },
   "negociacoes": {},

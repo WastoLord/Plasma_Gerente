@@ -344,7 +344,7 @@ function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
         botName, 
         dataInicio: Date.now(), 
         dataFim: baseTime + duracaoMs, 
-        lojaId: 'loja' 
+        lojaId: 'plasma' // Definido padrão plasma no DB também
     }
     salvarDB()
 
@@ -369,7 +369,10 @@ function adicionarTeste(cliente) {
 
 function iniciarSessaoTmux(cliente, botName, restauracao = false) {
     const sessionName = `plasma_${cliente.toLowerCase().substring(0, 8)}`
-    const comando = `tmux new-session -d -s ${sessionName} "node worker_loader.js ${cliente} ${botName} loja"`
+    
+    // ATUALIZAÇÃO: Removido o argumento 'loja' fixo.
+    // Agora ele passa apenas 2 argumentos e o loader assume 'plasma'
+    const comando = `tmux new-session -d -s ${sessionName} "node worker_loader.js ${cliente} ${botName}"`
 
     exec(comando, (error, stdout, stderr) => {
         if (!error) {

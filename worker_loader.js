@@ -5,15 +5,15 @@ const fs = require('fs');
 const { pathfinder } = require('mineflayer-pathfinder');
 const pvp = require('mineflayer-pvp').plugin;
 
-// --- ARGUMENTOS & CONFIGURAÇÃO IDENTICA AO GERENTE ---
+// --- ARGUMENTOS ---
 const args = process.argv.slice(2);
 if (args.length < 2) { console.log("❌ [Loader] Erro: Argumentos insuficientes."); process.exit(1); }
 const DONO = args[0];
 const BOT_NICK = args[1];
-const LOJA_ID = args[2] || 'loja';
-const SENHA_PADRAO = '***REMOVED***'; // Mesma senha do gerente ou argumento se preferir
+// Padrão definido para 'plasma'
+const LOJA_ID = args[2] || 'plasma'; 
+const SENHA_PADRAO = '***REMOVED***'; 
 
-// Item alvo para entrar no servidor (Mesma lógica do CONFIG do Gerente)
 const ID_ITEM_ALVO = 'golden_axe'; 
 const ID_ITEM_MAO = 'diamond';
 
@@ -23,21 +23,22 @@ const connConfig = {
   host: 'jogar.craftsapiens.com.br',
   port: 25565,
   username: BOT_NICK, 
-  password: SENHA_PADRAO, // Injetado direto na config, igual ao Gerente
+  password: SENHA_PADRAO,
   auth: 'offline',
   version: '1.21.4',
   checkTimeoutInterval: 120 * 1000 
 };
 
 // =========================================================================
-// 🛡️ SILENCIADOR SUPREMO (Clone exato do Gerente)
+// 🛡️ SILENCIADOR SUPREMO
 // =========================================================================
 const BLOQUEAR_LOGS = [
     'PartialReadError', 'Read error for undefined', 'protodef', 'packet_world_particles', 
     'eval at compile', 'ExtensionError', 'Method Not Allowed', 'DeprecationWarning',
     'punycode', 'physicTick', 'src/compiler.js', 'src/utils.js',
-    'Chunk size is', 'partial packet', 'entity_teleport', 'buffer :', 'was read',
-    'ECONNRESET', 'ETIMEDOUT', 'client timed out', 'KeepAlive'
+    'Chunk size', 'partial packet', 'entity_teleport', 'buffer :', 'was read', 
+    'ECONNRESET', 'ETIMEDOUT', 'client timed out', 'KeepAlive',
+    'Received packet', 'Unknown packet'
 ];
 
 function deveBloquear(str) {
@@ -49,6 +50,7 @@ const originalStderrWrite = process.stderr.write;
 process.stderr.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStderrWrite.apply(process.stderr, arguments) };
 const originalConsoleError = console.error;
 console.error = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalConsoleError.apply(console, args) };
+
 process.on('uncaughtException', (err) => { 
     if (err.code === 'ECONNRESET' || err.message.includes('client timed out')) return;
 });
@@ -59,16 +61,14 @@ const LOGIC_FILE = './worker_logic.js';
 let bot = null;
 let currentLogic = null;
 let reconnectTimer = null;
-let loopLobby = null; // Adicionado para manter simetria
+let loopLobby = null; 
 
-// --- LÓGICA DE INICIALIZAÇÃO (Clone do iniciarGerente) ---
 function iniciarBot() {
     if (reconnectTimer) clearTimeout(reconnectTimer);
     if (loopLobby) clearInterval(loopLobby);
 
     console.log(`🔌 (Re)Conectando Worker ${BOT_NICK}...`);
     
-    // Limpeza prévia
     if (bot) {
         bot.removeAllListeners();
         try { bot.quit() } catch(e){}
@@ -77,13 +77,9 @@ function iniciarBot() {
 
     try {
         bot = mineflayer.createBot(connConfig);
-        
-        // Plugins carregados na inicialização, mas lógica só depois
         bot.loadPlugin(pathfinder);
         bot.loadPlugin(pvp);
 
-        // --- EVENTOS DE CONEXÃO IDÊNTICOS AO GERENTE ---
-        
         bot.on('login', () => {
             console.log('🔑 Autenticado! Entrando no mundo...');
         });
@@ -91,22 +87,21 @@ function iniciarBot() {
         bot.on('spawn', () => {
             console.log('✅ Worker online e spawnado!');
             
-            // 1. Login Temporizado (Igual ao Gerente: setTimeout 2000)
+            // 1. Login Temporizado 
             setTimeout(() => {
                 bot.chat('/login ' + SENHA_PADRAO);
             }, 2000);
 
-            // 2. Loop de Lobby (Igual ao Gerente)
+            // 2. Loop de Lobby 
             iniciarLoopLobby();
 
-            // 3. Carregar Lógica Comportamental (Só comportamento, não conexão)
-            // Carregamos logo para os sistemas estarem prontos, mas a conexão é controlada aqui
+            // 3. Carregar Lógica
             carregarLogica();
         });
 
         bot.on('end', (reason) => {
-            console.log(`❌ Conexão perdida. Reconectando em 15s... (Igual Gerente)`);
-            agendarReconexao(15000); // Mudado de 30s para 15s para igualar o Gerente
+            console.log(`❌ Conexão perdida. Reconectando em 15s...`);
+            agendarReconexao(15000); 
         });
 
         bot.on('error', (err) => {
@@ -115,12 +110,16 @@ function iniciarBot() {
             }
         });
 
-        // --- EVENTOS DO JOGO (NAVEGAÇÃO DE LOBBY) ---
-        // Movido da 'logic' para o 'loader' para garantir execução prioritária
+        // --- EVENTOS DE NAVEGAÇÃO ---
 
         bot.on('windowOpen', (window) => {
             if (window.type === 'minecraft:inventory') return;
-            console.log(`📂 Janela aberta: "${window.title}"`);
+            
+            let titulo = window.title;
+            try { titulo = JSON.parse(window.title).text || window.title; } catch(e) { 
+                try { titulo = JSON.stringify(window.title); } catch(z) {}
+            }
+            console.log(`📂 Janela aberta: "${titulo}"`);
             
             const alvo = window.slots.find(item => item && item.name.includes(ID_ITEM_ALVO));
             if (alvo) {
@@ -131,21 +130,30 @@ function iniciarBot() {
                     if (loopLobby) clearInterval(loopLobby);
                     console.log("🚀 Entrada no servidor concluída.");
                     
-                    // Opcional: Avisar a lógica que entramos no survival
+                    // --- FIX: COMANDO DE LOJA NO LOADER ---
+                    // Garante que o bot vá para a loja assim que entra no Survival
+                    setTimeout(() => {
+                        console.log(`🛒 Enviando para loja: /loja ${LOJA_ID}`);
+                        bot.chat(`/loja ${LOJA_ID}`);
+                    }, 3000); // 3 segundos de delay para garantir carregamento
+
                     if (currentLogic && currentLogic.onSurvival) currentLogic.onSurvival(bot);
                 }, 1000);
             }
         });
 
+        // --- CHAT DO SERVIDOR ---
+        bot.on('chat', (username, message) => {
+            if (username === bot.username) return;
+            console.log(`[Chat] ${username}: ${message}`);
+        });
+
         bot.on('message', (jsonMsg) => {
             const msg = jsonMsg.toString();
-            // Logs importantes apenas
-            if (msg.toLowerCase().includes('registrado') || msg.includes('/login')) console.log(`[Servidor] ${msg}`);
-            
-            // Tratamento de Auth Click (Anti-Bot) - Copiado do Gerente
+            if (msg.trim().length > 0 && !msg.includes('[Combate]')) {
+                console.log(`[Servidor] ${msg}`);
+            }
             if (jsonMsg) tratarLoginAuth(bot, jsonMsg);
-
-            // Auto-Registro (Caso conta nova)
             if (msg.toLowerCase().includes('/registrar') || msg.includes('não foi registrado')) {
                 console.log('📝 Criando conta...');
                 setTimeout(() => bot.chat(`/register ${SENHA_PADRAO} ${SENHA_PADRAO}`), 1500);
@@ -157,8 +165,6 @@ function iniciarBot() {
         agendarReconexao(15000); 
     }
 }
-
-// --- FUNÇÕES AUXILIARES (Cópias do Gerente) ---
 
 function agendarReconexao(ms) {
     if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -194,13 +200,11 @@ function tratarLoginAuth(bot, jsonMsg) {
     varrer(jsonMsg);
 }
 
-// --- HOT RELOAD DE LÓGICA (Mantido para funcionalidades, mas sem controle de conexão) ---
 function carregarLogica() {
     if (currentLogic && currentLogic.stop) try { currentLogic.stop(bot) } catch(e) {}
     delete require.cache[require.resolve(LOGIC_FILE)];
     try {
         const novaLogica = require(LOGIC_FILE);
-        // Passamos o bot JÁ CONECTADO e AUTENTICADO
         if (novaLogica.start) {
             novaLogica.start(bot, { dono: DONO, loja: LOJA_ID });
             currentLogic = novaLogica;
@@ -208,7 +212,6 @@ function carregarLogica() {
     } catch (e) { console.log("Erro lógica:", e); }
 }
 
-// Watcher do arquivo de lógica
 let debounce = false;
 fs.watch(LOGIC_FILE, (e, f) => {
     if (!f || debounce) return;
@@ -217,7 +220,6 @@ fs.watch(LOGIC_FILE, (e, f) => {
     if (bot?.entity) carregarLogica();
 });
 
-// Interface de Chat Manual (Loader)
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 rl.on('line', (input) => { 
     if (input.trim() === 'encerrar_contrato') {
@@ -226,5 +228,4 @@ rl.on('line', (input) => {
     } else if (bot?.entity) bot.chat(input);
 });
 
-// INÍCIO
 iniciarBot();

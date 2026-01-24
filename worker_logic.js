@@ -17,17 +17,23 @@ module.exports = {
         ctx = Context.create(args);
         console.log(`▶️ Worker Modular Ativo. Dono: ${ctx.config.dono}`);
 
+        // Garante que o plugin PVP esteja carregado
         if (!bot.pvp) bot.loadPlugin(pvp);
 
-        // Inicializa
+        // Inicializa sistemas passivos
         Lobby.setup(bot, ctx);
         Movement.setup(bot);
 
-        // Loop Físico
+        // Evento de "sobrevivência" chamado pelo Loader quando entra no servidor
+        this.onSurvival = (botInstance) => {
+            console.log("🌲 Modo Survival Ativado: Preparando combate e rotinas.");
+        };
+
+        // Loop Físico (Roda a cada tick do jogo)
         bot.on('physicsTick', () => {
             if (ctx.state.elevator.active) {
                 Movement.tick(bot, ctx);
-                return;
+                return; // Se estiver no elevador, não combate
             }
             Combat.tick(bot, ctx);
             Health.tick(bot);
@@ -39,29 +45,44 @@ module.exports = {
             if (!command) return;
 
             const { cmd, arg } = command;
-            Utils.feedback(bot, ctx, `CMD: ${cmd}`);
+            
+            // REMOVIDO: A linha que repetia "CMD: ..." foi apagada.
+            // Agora ele vai direto para a execução.
 
-            if (cmd === 'parar') {
+            // --- CONTROLE GERAL ---
+            if (cmd === 'parar' || cmd === 'paz') {
                 stopAll(bot, ctx);
-                Utils.feedback(bot, ctx, "Parado.");
+                Utils.feedback(bot, ctx, "🏳️ Parado."); // Feedback útil mantido
             }
-            // Movimento
-            else if (cmd === 'vem') { stopAll(bot, ctx); Movement.follow(bot, ctx, user); }
+            else if (cmd === 'help' || cmd === 'ajuda') {
+                Utils.feedback(bot, ctx, "LISTA: vem, parar, subir, descer, guarda, ataque, usar <tempo>, itens, pix, loja");
+            }
+
+            // --- MOVIMENTO ---
+            else if (cmd === 'vem') { 
+                stopAll(bot, ctx); 
+                Movement.follow(bot, ctx, user); 
+                // "Indo!" já é enviado pelo sistema de movimento
+            }
             else if (cmd === 'subir') Movement.startElevator(bot, ctx, 'subir', (m) => Utils.feedback(bot, ctx, m));
             else if (cmd === 'descer') Movement.startElevator(bot, ctx, 'descer', (m) => Utils.feedback(bot, ctx, m));
 
-            // Combate
-            else if (cmd === 'guarda') { stopAll(bot, ctx); Combat.setGuard(ctx, true); Utils.feedback(bot, ctx, "🛡️ Guarda"); }
-            else if (cmd === 'ataque') { stopAll(bot, ctx); Combat.attack(bot, ctx, (m) => Utils.feedback(bot, ctx, m)); }
-            else if (cmd === 'paz') { stopAll(bot, ctx); Utils.feedback(bot, ctx, "🏳️ Paz"); }
+            // --- COMBATE ---
+            else if (cmd === 'guarda') { 
+                stopAll(bot, ctx); 
+                Combat.setGuard(ctx, true); 
+                Utils.feedback(bot, ctx, "🛡️ Guarda Ativa"); 
+            }
+            else if (cmd === 'ataque') { 
+                stopAll(bot, ctx); 
+                Combat.attack(bot, ctx, (m) => Utils.feedback(bot, ctx, m)); 
+            }
 
-            // Automação
+            // --- AUTOMAÇÃO ---
             else if (cmd === 'usar') Automation.startAutoClick(bot, ctx, arg, (m) => Utils.feedback(bot, ctx, m));
             else if (cmd === 'itens') Automation.dropItems(bot, ctx);
             else if (cmd === 'pix') Automation.sendPix(bot, ctx);
-            else if (cmd === 'loja') bot.chat(`/loja ${arg || 'loja'}`);
-            
-            else if (cmd === 'help') Utils.feedback(bot, ctx, "CMD: vem, parar, subir, descer, guarda, ataque, usar, itens, pix, loja");
+            else if (cmd === 'loja') bot.chat(`/loja ${arg || 'plasma'}`);
         };
 
         bot.on('chat', handleCmd);
@@ -80,7 +101,10 @@ module.exports = {
         bot.on('death', () => {
             Utils.feedback(bot, ctx, "💀 Morri!");
             stopAll(bot, ctx);
-            setTimeout(() => bot.respawn(), 5000);
+            setTimeout(() => {
+                bot.respawn();
+                bot.chat('/home'); 
+            }, 5000);
         });
     },
 
@@ -88,13 +112,14 @@ module.exports = {
         console.log("⏹️ Parando lógica modular...");
         stopAll(bot, ctx);
         Lobby.cleanup(bot);
-        bot.removeAllListeners(); // Limpeza bruta para garantir
     },
 
     encerrar: (bot) => {
         bot.chat('/home');
         setTimeout(() => process.exit(0), 5000);
-    }
+    },
+
+    onSurvival: (bot) => {}
 };
 
 function stopAll(bot, ctx) {

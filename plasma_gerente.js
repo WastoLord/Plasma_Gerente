@@ -20,14 +20,15 @@ const CONFIG = {
 }
 
 // =========================================================================
-// 🛡️ SILENCIADOR SUPREMO V4
+// 🛡️ SILENCIADOR SUPREMO V4.1 (BLOQUEIA TUDO)
 // =========================================================================
 const BLOQUEAR_LOGS = [
     'PartialReadError', 'Read error for undefined', 'protodef', 'packet_world_particles', 
     'eval at compile', 'ExtensionError', 'Method Not Allowed', 'DeprecationWarning',
     'punycode', 'physicTick', 'src/compiler.js', 'src/utils.js',
-    'Chunk size is', 'partial packet', 'entity_teleport', 'buffer :', 'was read',
-    'ECONNRESET', 'ETIMEDOUT', 'client timed out', 'KeepAlive'
+    'Chunk size', 'partial packet', 'entity_teleport', 'buffer :', 'was read',
+    'ECONNRESET', 'ETIMEDOUT', 'client timed out', 'KeepAlive',
+    'Received packet', 'Unknown packet'
 ]
 
 function deveBloquear(str) {
@@ -35,10 +36,22 @@ function deveBloquear(str) {
     return BLOQUEAR_LOGS.some(termo => str.toString().includes(termo))
 }
 
+// 1. Hook no stderr (Erros)
 const originalStderrWrite = process.stderr.write
 process.stderr.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStderrWrite.apply(process.stderr, arguments) }
+
+// 2. Hook no console.error
 const originalConsoleError = console.error
 console.error = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalConsoleError.apply(console, args) }
+
+// 3. Hook no stdout (Logs comuns)
+const originalStdoutWrite = process.stdout.write
+process.stdout.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStdoutWrite.apply(process.stdout, arguments) }
+
+// 4. Hook no console.log
+const originalLog = console.log
+console.log = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalLog.apply(console, args) }
+
 process.on('uncaughtException', (err) => { 
     if (err.code === 'ECONNRESET' || err.message.includes('client timed out')) return 
 })

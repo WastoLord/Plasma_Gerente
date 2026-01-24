@@ -30,7 +30,7 @@ const connConfig = {
 };
 
 // =========================================================================
-// 🛡️ SILENCIADOR SUPREMO
+// 🛡️ SILENCIADOR SUPREMO (AGORA BLOQUEIA TUDO)
 // =========================================================================
 const BLOQUEAR_LOGS = [
     'PartialReadError', 'Read error for undefined', 'protodef', 'packet_world_particles', 
@@ -46,10 +46,21 @@ function deveBloquear(str) {
     return BLOQUEAR_LOGS.some(termo => str.toString().includes(termo));
 }
 
+// 1. Hook no stderr (Erros)
 const originalStderrWrite = process.stderr.write;
 process.stderr.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStderrWrite.apply(process.stderr, arguments) };
+
+// 2. Hook no console.error
 const originalConsoleError = console.error;
 console.error = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalConsoleError.apply(console, args) };
+
+// 3. Hook no stdout (Logs normais onde esse erro costuma vazar)
+const originalStdoutWrite = process.stdout.write;
+process.stdout.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStdoutWrite.apply(process.stdout, arguments) };
+
+// 4. Hook no console.log (Para garantir)
+const originalLog = console.log;
+console.log = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalLog.apply(console, args) };
 
 process.on('uncaughtException', (err) => { 
     if (err.code === 'ECONNRESET' || err.message.includes('client timed out')) return;

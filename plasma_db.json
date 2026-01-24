@@ -1,12 +1,5 @@
 {
-  "clientes": {
-    "wastolord_13": {
-      "botName": "Plasma_wastolor",
-      "dataInicio": 1769260820425,
-      "dataFim": 1769264420425,
-      "lojaId": "plasma"
-    }
-  },
+  "clientes": {},
   "negociacoes": {},
   "reembolsos": []
 }

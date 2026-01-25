@@ -3,16 +3,19 @@ module.exports = {
         return {
             config: {
                 dono: args.dono,
-                botName: args.botName, // Agora guardamos o nome do bot aqui
+                botName: args.botName,
                 loja: args.loja || 'plasma',
-                password: '***REMOVED***', 
+                // AGORA USA A SENHA RECEBIDA DO LOADER (QUE VEIO DO ENV)
+                password: args.password, 
                 admins: ['WastoLord_13'],
                 
+                // Combate
                 combat: {
                     speed: 600,
                     range: 3.5,
                     searchRange: 20
                 },
+                // Entrada
                 entry: {
                     handItem: 'diamond',
                     menuItem: 'golden_axe'
@@ -22,7 +25,7 @@ module.exports = {
                 jaFoiParaLoja: false,
                 ultimoAtaque: 0,
                 guardMode: false,
-                isCombatActive: false, // Importante para a correção do combate
+                isCombatActive: false,
                 
                 elevator: {
                     active: false,

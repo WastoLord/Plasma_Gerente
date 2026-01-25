@@ -11,14 +11,20 @@ if (args.length < 2) { console.log("❌ [Loader] Erro: Argumentos insuficientes.
 const DONO = args[0];
 const BOT_NICK = args[1];
 const LOJA_ID = args[2] || 'plasma'; 
-const SENHA_PADRAO = '***REMOVED***'; 
+
+// --- SEGURANÇA: SENHA VIA ENV ---
+const SENHA_PADRAO = process.env.BOT_PASSWORD;
+if (!SENHA_PADRAO) {
+    console.error("❌ ERRO: 'BOT_PASSWORD' não definida. O bot não pode logar.");
+    process.exit(1);
+}
 
 const ID_ITEM_ALVO = 'golden_axe'; 
 const ID_ITEM_MAO = 'diamond';
 const DB_FILE = 'plasma_db.json'; 
 
 // --- CONFIGURAÇÃO DO COMANDO EXTRA (PRIMEIRA VEZ) ---
-const COMANDO_EXTRA = '/skin set https://t.novaskin.me/2f3929c63dc51bc8a44c100f8531112d1270ee31cc3d3447656986d77a3df6bc'; // <--- MUDE AQUI O COMANDO DESEJADO
+const COMANDO_EXTRA = '/skin set https://t.novaskin.me/2f3929c63dc51bc8a44c100f8531112d1270ee31cc3d3447656986d77a3df6bc';
 
 console.log(`🤖 [Loader] Iniciando Protocolo Gerente para: ${BOT_NICK}`);
 
@@ -154,18 +160,15 @@ function iniciarBot() {
                         const db = lerDB();
                         
                         if (db.clientes && db.clientes[DONO]) {
-                            // Se NÃO tiver a flag visitouLoja, executa o combo
                             if (!db.clientes[DONO].visitouLoja) {
                                 console.log(`🛒 Primeira vez! Enviando para loja: /loja ${LOJA_ID}`);
                                 bot.chat(`/loja ${LOJA_ID}`);
                                 
-                                // COMANDO EXTRA (Delay de 2s após a loja)
                                 setTimeout(() => {
                                     console.log(`✨ Executando comando único extra: ${COMANDO_EXTRA}`);
                                     bot.chat(COMANDO_EXTRA);
                                 }, 2000);
                                 
-                                // Adiciona a flag e salva
                                 db.clientes[DONO].visitouLoja = true;
                                 salvarDB(db);
                             } else {
@@ -245,8 +248,8 @@ function carregarLogica() {
     try {
         const novaLogica = require(LOGIC_FILE);
         if (novaLogica.start) {
-            // CORREÇÃO: Passando botName para a lógica
-            novaLogica.start(bot, { dono: DONO, loja: LOJA_ID, botName: BOT_NICK });
+            // CORREÇÃO: Passando senha segura para a lógica também
+            novaLogica.start(bot, { dono: DONO, loja: LOJA_ID, botName: BOT_NICK, password: SENHA_PADRAO });
             currentLogic = novaLogica;
         }
     } catch (e) { console.log("Erro lógica:", e); }

@@ -3,12 +3,21 @@ const fs = require('fs')
 const readline = require('readline') 
 const { exec } = require('child_process')
 
+// --- VALIDAÇÃO DE SEGURANÇA ---
+const SENHA_BOT = process.env.BOT_PASSWORD;
+if (!SENHA_BOT) {
+    console.error("\n❌ ERRO CRÍTICO DE SEGURANÇA ❌");
+    console.error("A senha não foi definida na variável de ambiente 'BOT_PASSWORD'.");
+    console.error("Use: export BOT_PASSWORD='SuaSenhaAqui' && node plasma_gerente.js\n");
+    process.exit(1);
+}
+
 // --- CONFIGURAÇÃO ---
 const CONFIG = {
     host: 'jogar.craftsapiens.com.br',
     port: 25565,
     username: 'Plasma_Gerente',
-    password: '***REMOVED***', 
+    password: SENHA_BOT, // Usa a variável de ambiente
     auth: 'offline',
     version: '1.21.4',
     admins: ['WastoLord_13'], 
@@ -151,7 +160,6 @@ function iniciarGerente() {
         }
     })
 
-    // --- SEGURANÇA REFORÇADA NO MESSAGE ---
     bot.on('message', (jsonMsg) => {
         const msg = jsonMsg.toString()
         if (msg.trim().length > 0) console.log(`[Servidor] ${msg}`)
@@ -172,23 +180,17 @@ function iniciarGerente() {
             tratarComandosCliente(sender, content)
         }
 
-        // --- VERIFICAÇÃO ANTI-FRAUDE ---
-        // Se a mensagem contém ":", provavelmente é chat de player (Nick: msg)
-        // Mensagens de sistema (PIX) geralmente não têm ":" antes do conteúdo ou vêm em JSON especial
-        // A regex abaixo procura padrões de chat comuns para IGNORAR
         const isPlayerChat = /^(?:\[.*?\]\s*)?(\w+)\s*:/i.test(msg) || jsonMsg.toString().startsWith('<');
         
         if (!isPlayerChat) {
             processarPagamento(msg)
         } else {
-            // Se alguém tentar forjar, podemos logar
             if (msg.includes('[PIX]')) {
                 console.log(`⚠️ ALERTA DE FRAUDE: Mensagem de PIX detectada em chat de jogador. Ignorando.`)
             }
         }
     })
 
-    // Evento Chat separado apenas para log e comandos, não para pagamentos
     bot.on('chat', (username, message) => {
         if (username === bot.username) return
         console.log(`[Chat] ${username}: ${message}`) 
@@ -375,7 +377,10 @@ function adicionarTeste(cliente) {
 
 function iniciarSessaoTmux(cliente, botName, restauracao = false) {
     const sessionName = `plasma_${cliente.toLowerCase().substring(0, 8)}`
-    const comando = `tmux new-session -d -s ${sessionName} "node worker_loader.js ${cliente} ${botName}"`
+    
+    // --- SEGURANÇA: INJETAR SENHA NA SESSÃO ---
+    // Usamos 'export' antes do comando para que o worker herde a senha
+    const comando = `tmux new-session -d -s ${sessionName} "export BOT_PASSWORD='${CONFIG.password}'; node worker_loader.js ${cliente} ${botName}"`
 
     exec(comando, (error, stdout, stderr) => {
         if (!error) {

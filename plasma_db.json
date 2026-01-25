@@ -8,52 +8,6 @@
       "visitouLoja": true
     }
   },
-  "negociacoes": {
-    "WastoLord_13": {
-      "estado": "aguardando_confirmacao",
-      "timestamp": 1769341798502
-    }
-  },
-  "reembolsos": [
-    {
-      "id": 1769267695033,
-      "cliente": "WastoLord_13",
-      "valor": 1,
-      "motivo": "Sem negociação aberta",
-      "status": "ENVIADO_AUTO",
-      "data": "1/24/2026, 3:14:55 PM"
-    },
-    {
-      "id": 1769268307764,
-      "cliente": "WastoLord_13",
-      "valor": 1,
-      "motivo": "Sem negociação aberta",
-      "status": "ENVIADO_AUTO",
-      "data": "1/24/2026, 3:25:07 PM"
-    },
-    {
-      "id": 1769341896034,
-      "cliente": "WastoLord_13",
-      "valor": 1,
-      "motivo": "Sem negociação aberta",
-      "status": "ENVIADO_AUTO",
-      "data": "1/25/2026, 11:51:36 AM"
-    },
-    {
-      "id": 1769341996031,
-      "cliente": "WastoLord_13",
-      "valor": 1,
-      "motivo": "Sem negociação aberta",
-      "status": "ENVIADO_AUTO",
-      "data": "1/25/2026, 11:53:16 AM"
-    },
-    {
-      "id": 1769342944529,
-      "cliente": "WastoLord_13",
-      "valor": 1,
-      "motivo": "Sem negociação aberta",
-      "status": "ENVIADO_AUTO",
-      "data": "1/25/2026, 12:09:04 PM"
-    }
-  ]
+  "negociacoes": {},
+  "reembolsos": []
 }

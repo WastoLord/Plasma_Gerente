@@ -17,7 +17,7 @@ const CONFIG = {
     host: 'jogar.craftsapiens.com.br',
     port: 25565,
     username: 'Plasma_Gerente',
-    password: SENHA_BOT, // Usa a variável de ambiente
+    password: SENHA_BOT, 
     auth: 'offline',
     version: '1.21.4',
     admins: ['WastoLord_13'], 
@@ -70,9 +70,12 @@ rl.on('line', (input) => {
         return
     }
 
+    // COMANDO DE TESTE: teste <nick> [dias]
     if (cmd.startsWith('teste ')) {
-        const nick = cmd.split(' ')[1]
-        if (nick) adicionarTeste(nick)
+        const parts = cmd.split(' ')
+        const nick = parts[1]
+        const dias = parts[2] // Argumento opcional
+        if (nick) adicionarTeste(nick, dias)
         return
     }
 
@@ -342,10 +345,12 @@ function aceitarContrato(cliente) {
     salvarDB()
 }
 
+// FUNÇÃO UNIFICADA: ADICIONAR OU RENOVAR (+ COMANDO DE TESTE)
 function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
     const nickLimpo = cliente.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 8)
     const botName = `Plasma_${nickLimpo}`
     
+    // Data base é agora OU o fim do contrato atual se já existir
     const baseTime = (db.clientes[cliente] && db.clientes[cliente].dataFim > Date.now()) 
         ? db.clientes[cliente].dataFim 
         : Date.now()
@@ -358,7 +363,7 @@ function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
     }
     salvarDB()
 
-    console.log(`✅ Cliente ${cliente} adicionado/renovado.`)
+    console.log(`✅ Cliente ${cliente} adicionado/renovado por ${(duracaoMs / (1000*60*60)).toFixed(1)}h.`)
     
     if (pago) {
         enviarSequencia([
@@ -370,16 +375,24 @@ function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
     setTimeout(() => iniciarSessaoTmux(cliente, botName, db.clientes[cliente] ? true : false), 6000)
 }
 
-function adicionarTeste(cliente) {
-    console.log(`🧪 Adicionando teste de 1h para ${cliente}...`)
-    adicionarOuRenovar(cliente, 60 * 60 * 1000, false)
+// COMANDO DE TESTE (1 HORA PADRÃO OU DIAS ESPECÍFICOS)
+function adicionarTeste(cliente, dias) {
+    let duracaoMs = 60 * 60 * 1000 // Padrão: 1 hora
+    let tipo = "1h"
+
+    if (dias && !isNaN(dias)) {
+        duracaoMs = parseFloat(dias) * 24 * 60 * 60 * 1000
+        tipo = `${dias} dias`
+    }
+
+    console.log(`🧪 Adicionando teste de ${tipo} para ${cliente}...`)
+    adicionarOuRenovar(cliente, duracaoMs, false)
 }
 
 function iniciarSessaoTmux(cliente, botName, restauracao = false) {
     const sessionName = `plasma_${cliente.toLowerCase().substring(0, 8)}`
     
     // --- SEGURANÇA: INJETAR SENHA NA SESSÃO ---
-    // Usamos 'export' antes do comando para que o worker herde a senha
     const comando = `tmux new-session -d -s ${sessionName} "export BOT_PASSWORD='${CONFIG.password}'; node worker_loader.js ${cliente} ${botName}"`
 
     exec(comando, (error, stdout, stderr) => {

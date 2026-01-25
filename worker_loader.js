@@ -15,8 +15,10 @@ const SENHA_PADRAO = '***REMOVED***';
 
 const ID_ITEM_ALVO = 'golden_axe'; 
 const ID_ITEM_MAO = 'diamond';
-// ALTERAÇÃO: Aponta para o DB principal do Gerente
 const DB_FILE = 'plasma_db.json'; 
+
+// --- CONFIGURAÇÃO DO COMANDO EXTRA (PRIMEIRA VEZ) ---
+const COMANDO_EXTRA = '/skin set https://t.novaskin.me/2f3929c63dc51bc8a44c100f8531112d1270ee31cc3d3447656986d77a3df6bc'; // <--- MUDE AQUI O COMANDO DESEJADO
 
 console.log(`🤖 [Loader] Iniciando Protocolo Gerente para: ${BOT_NICK}`);
 
@@ -68,14 +70,14 @@ let currentLogic = null;
 let reconnectTimer = null;
 let loopLobby = null; 
 
-// --- FUNÇÕES DE PERSISTÊNCIA (ATUALIZADAS PARA PLASMA_DB) ---
+// --- FUNÇÕES DE PERSISTÊNCIA ---
 function lerDB() {
     try {
         if (fs.existsSync(DB_FILE)) {
             return JSON.parse(fs.readFileSync(DB_FILE));
         }
     } catch(e) {}
-    return { clientes: {} }; // Retorna estrutura padrão se falhar
+    return { clientes: {} }; 
 }
 
 function salvarDB(dados) {
@@ -147,26 +149,30 @@ function iniciarBot() {
                     if (loopLobby) clearInterval(loopLobby);
                     console.log("🚀 Entrada no servidor concluída.");
                     
-                    // --- VERIFICAÇÃO DE LOJA ÚNICA (PLASMA_DB) ---
+                    // --- BLOCO DE PRIMEIRA VEZ (Loja + Comando Extra) ---
                     setTimeout(() => {
                         const db = lerDB();
                         
-                        // Verifica se o cliente existe no DB
                         if (db.clientes && db.clientes[DONO]) {
-                            // Se NÃO tiver a flag visitouLoja, executa
+                            // Se NÃO tiver a flag visitouLoja, executa o combo
                             if (!db.clientes[DONO].visitouLoja) {
                                 console.log(`🛒 Primeira vez! Enviando para loja: /loja ${LOJA_ID}`);
                                 bot.chat(`/loja ${LOJA_ID}`);
                                 
-                                // Adiciona a flag e salva no mesmo arquivo
+                                // COMANDO EXTRA (Delay de 2s após a loja)
+                                setTimeout(() => {
+                                    console.log(`✨ Executando comando único extra: ${COMANDO_EXTRA}`);
+                                    bot.chat(COMANDO_EXTRA);
+                                }, 2000);
+                                
+                                // Adiciona a flag e salva
                                 db.clientes[DONO].visitouLoja = true;
                                 salvarDB(db);
                             } else {
-                                console.log("ℹ️ Já visitou a loja anteriormente (DB). Pulando.");
+                                console.log("ℹ️ Já executou comandos iniciais anteriormente (DB). Pulando.");
                             }
                         } else {
-                            // Se rodar manualmente e o cliente não existir no DB, executa por segurança
-                            console.log("⚠️ Cliente não encontrado no DB. Executando loja por padrão.");
+                            console.log("⚠️ Cliente não encontrado no DB. Executando apenas loja por segurança.");
                             bot.chat(`/loja ${LOJA_ID}`);
                         }
                     }, 3000);

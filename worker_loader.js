@@ -118,12 +118,25 @@ function iniciarBot() {
         bot.on('spawn', () => {
             console.log('✅ Worker online e spawnado!');
             
+            // Login inicial
             setTimeout(() => {
                 bot.chat('/login ' + SENHA_PADRAO);
             }, 2000);
 
             iniciarLoopLobby();
             carregarLogica();
+        });
+
+        // --- CORREÇÃO: DETECÇÃO DE REINÍCIO DO SERVIDOR ---
+        bot.on('respawn', () => {
+            console.log("🔄 Respawn detectado (possível volta ao lobby).");
+            // Se o servidor reiniciou, ele pode pedir login de novo e precisa do loop do lobby
+            setTimeout(() => {
+                bot.chat('/login ' + SENHA_PADRAO);
+            }, 2000);
+            
+            // Garante que o radar de lobby esteja ativo
+            iniciarLoopLobby();
         });
 
         bot.on('end', (reason) => {
@@ -152,8 +165,11 @@ function iniciarBot() {
                 bot.clickWindow(alvo.slot, 0, 0);
                 setTimeout(() => {
                     if (bot.currentWindow) bot.closeWindow(bot.currentWindow);
-                    if (loopLobby) clearInterval(loopLobby);
-                    console.log("🚀 Entrada no servidor concluída.");
+                    
+                    // --- CORREÇÃO: NÃO MATA O LOOP DO LOBBY ---
+                    // Em vez de clearInterval, deixamos ele rodando (watchdog).
+                    // Se o bot voltar pro lobby (com diamante na mão), ele reage sozinho.
+                    console.log("🚀 Entrada no servidor concluída. (Monitoramento de lobby mantido)");
                     
                     // --- BLOCO DE PRIMEIRA VEZ (Loja + Comando Extra) ---
                     setTimeout(() => {
@@ -171,11 +187,9 @@ function iniciarBot() {
                                 
                                 db.clientes[DONO].visitouLoja = true;
                                 salvarDB(db);
-                            } else {
-                                console.log("ℹ️ Já executou comandos iniciais anteriormente (DB). Pulando.");
                             }
                         } else {
-                            console.log("⚠️ Cliente não encontrado no DB. Executando apenas loja por segurança.");
+                            // Fallback seguro
                             bot.chat(`/loja ${LOJA_ID}`);
                         }
                     }, 3000);
@@ -214,14 +228,23 @@ function agendarReconexao(ms) {
 }
 
 function iniciarLoopLobby() {
+    // Garante que não duplica loops
     if (loopLobby) clearInterval(loopLobby);
+    
+    console.log("🧭 Radar de Lobby Ativado (Buscando Diamante)");
+    
+    // Intervalo aumentado para 20s para não spammar tanto, mas garantir detecção
     loopLobby = setInterval(() => {
         if (!bot || !bot.inventory) return;
+        
         const itemMenu = bot.inventory.items().find(i => i.name.includes(ID_ITEM_MAO));
-        if (itemMenu) {
+        
+        // Só tenta usar se achar o item e não estiver com janela aberta (pra não bugar menu)
+        if (itemMenu && !bot.currentWindow) {
+            // console.log("💎 Diamante detectado! Tentando abrir menu..."); // Debug opcional
             bot.equip(itemMenu, 'hand').then(() => bot.activateItem()).catch(() => {});
         }
-    }, 15000); 
+    }, 20000); 
 }
 
 function tratarLoginAuth(bot, jsonMsg) {

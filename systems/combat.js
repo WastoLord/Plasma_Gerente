@@ -13,7 +13,7 @@ async function equipSword(bot) {
             return false;
         }
     }
-    return false; // Não tem espada, mas não faz mal
+    return false; 
 }
 
 function tick(bot, ctx) {
@@ -21,62 +21,76 @@ function tick(bot, ctx) {
     if (!ctx.state.guardMode || !bot.entity) return;
     if (Date.now() - ctx.state.ultimoAtaque < ctx.config.combat.speed) return;
 
+    // Alcance aumentado para 5 para pegar players lagados ou com reach
+    const GUARD_RANGE = 5.0; 
+
     const alvo = bot.nearestEntity(e => {
+        // 1. Segurança Absoluta: Ignorar Dono
         if (e.type === 'player' && e.username === ctx.config.dono) return false;
-        if (e.type === 'mob' && e.name === 'armor_stand') return false;
-        if (e.type === 'object' || e.type === 'orb' || e.type === 'global') return false;
-        return e.position.distanceTo(bot.entity.position) <= ctx.config.combat.range;
+        
+        // 2. Filtro de Tipo: Aceita Players e Mobs
+        const isPlayer = e.type === 'player';
+        const isMob = e.type === 'mob';
+        
+        if (!isPlayer && !isMob) return false;
+
+        // 3. Ignorar lixo (Armor stands, drops, etc)
+        const name = e.name || '';
+        const ignorar = [
+            'item', 'experience_orb', 'arrow', 'snowball', 'egg', 
+            'armor_stand', 'boat', 'minecart', 'fishing_bobber'
+        ];
+        if (ignorar.includes(name)) return false;
+
+        // 4. Distância
+        return e.position.distanceTo(bot.entity.position) <= GUARD_RANGE;
     });
 
     if (alvo) {
-        // Na guarda, ele também tenta pegar a espada, mas bate de qualquer jeito se falhar
-        equipSword(bot).then(() => {
-            if (!ctx.state.guardMode) return; 
-            bot.lookAt(alvo.position.offset(0, alvo.height * 0.6, 0), true);
-            bot.attack(alvo);
-            bot.swingArm();
-        });
+        // Reativo: Olha e bate imediatamente
+        bot.lookAt(alvo.position.offset(0, alvo.height * 0.6, 0), true);
+        bot.attack(alvo);
+        bot.swingArm();
         ctx.state.ultimoAtaque = Date.now();
+
+        // Tenta equipar espada em paralelo
+        equipSword(bot).catch(() => {});
     }
 }
 
 async function attack(bot, ctx) {
     const range = ctx.config.combat.searchRange;
     
+    // Prioridade total para Players (excluindo dono)
     let target = bot.nearestEntity(e => 
         e.type === 'player' && e.username !== ctx.config.dono && 
         e.position.distanceTo(bot.entity.position) <= range
     );
 
+    // Se não achar player, busca mob
     if (!target) {
         target = bot.nearestEntity(e => 
-            e.type === 'mob' && e.mobType !== 'Armor Stand' && 
+            e.type === 'mob' && e.name !== 'armor_stand' && 
             e.position.distanceTo(bot.entity.position) <= range
         );
     }
 
     if (target) {
-        // --- TRAVA DE ESTADO ---
         ctx.state.isCombatActive = true; 
-        
         feedback(bot, ctx, `⚔️ Alvo: ${target.username || target.name || 'Desconhecido'}`);
         
-        // Tenta equipar, mas ignora se falhar (false) e segue para o ataque
         await equipSword(bot);
         
-        // Se mandou parar ENQUANTO trocava de item, cancela aqui
         if (!ctx.state.isCombatActive) return;
         
         if (bot.pvp) {
             bot.pvp.attack(target);
         } else {
-            // Fallback manual se o plugin falhar
             const attackLoop = setInterval(async () => {
                 if (!ctx.state.isCombatActive || !target || !target.isValid) { 
                     clearInterval(attackLoop); 
                     return; 
                 }
-                // Tenta equipar de novo a cada hit (caso pegue drop no chão)
                 await equipSword(bot); 
                 bot.lookAt(target.position.offset(0, target.height, 0));
                 bot.attack(target);
@@ -94,29 +108,16 @@ function setGuard(ctx, enable) {
 }
 
 function stop(bot, ctx) {
-    // 1. DESLIGA A TRAVA DE ESTADO
     if (ctx && ctx.state) {
         ctx.state.isCombatActive = false;
         ctx.state.guardMode = false;
     }
-
-    // 2. Para plugin PVP
-    if (bot.pvp) {
-        bot.pvp.stop();
-    }
-    
-    // 3. Para Pathfinder
-    if (bot.pathfinder) {
-        bot.pathfinder.setGoal(null);
-    }
-
-    // 4. Para Loop manual
+    if (bot.pvp) bot.pvp.stop();
+    if (bot.pathfinder) bot.pathfinder.setGoal(null);
     if (ctx && ctx.state && ctx.state.manualAttackLoop) {
         clearInterval(ctx.state.manualAttackLoop);
         ctx.state.manualAttackLoop = null;
     }
-
-    // 5. Limpeza física
     bot.clearControlStates();
     bot.stopDigging();
 }

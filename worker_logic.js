@@ -83,7 +83,10 @@ module.exports = {
             }
             
             else if (cmd === 'usar') Automation.startAutoClick(bot, ctx, arg, (m) => Utils.feedback(bot, ctx, m));
-            else if (cmd === 'itens') Automation.dropItems(bot, ctx);
+            
+            // CORREÇÃO: Passando o 'user' para a função dropItems
+            else if (cmd === 'itens') Automation.dropItems(bot, ctx, user);
+            
             else if (cmd === 'pix') Automation.sendPix(bot, ctx);
             else if (cmd === 'loja') bot.chat(`/loja ${arg || 'plasma'}`);
         };

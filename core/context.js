@@ -3,17 +3,16 @@ module.exports = {
         return {
             config: {
                 dono: args.dono,
-                loja: args.loja || 'loja',
-                password: '***REMOVED***', // Senha fixa
+                botName: args.botName, // Agora guardamos o nome do bot aqui
+                loja: args.loja || 'plasma',
+                password: '***REMOVED***', 
                 admins: ['WastoLord_13'],
                 
-                // Combate
                 combat: {
                     speed: 600,
                     range: 3.5,
                     searchRange: 20
                 },
-                // Entrada
                 entry: {
                     handItem: 'diamond',
                     menuItem: 'golden_axe'
@@ -23,6 +22,7 @@ module.exports = {
                 jaFoiParaLoja: false,
                 ultimoAtaque: 0,
                 guardMode: false,
+                isCombatActive: false, // Importante para a correção do combate
                 
                 elevator: {
                     active: false,

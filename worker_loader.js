@@ -10,12 +10,13 @@ const args = process.argv.slice(2);
 if (args.length < 2) { console.log("❌ [Loader] Erro: Argumentos insuficientes."); process.exit(1); }
 const DONO = args[0];
 const BOT_NICK = args[1];
-// Padrão definido para 'plasma'
 const LOJA_ID = args[2] || 'plasma'; 
 const SENHA_PADRAO = '***REMOVED***'; 
 
 const ID_ITEM_ALVO = 'golden_axe'; 
 const ID_ITEM_MAO = 'diamond';
+// ALTERAÇÃO: Aponta para o DB principal do Gerente
+const DB_FILE = 'plasma_db.json'; 
 
 console.log(`🤖 [Loader] Iniciando Protocolo Gerente para: ${BOT_NICK}`);
 
@@ -30,7 +31,7 @@ const connConfig = {
 };
 
 // =========================================================================
-// 🛡️ SILENCIADOR SUPREMO (AGORA BLOQUEIA TUDO)
+// 🛡️ SILENCIADOR SUPREMO
 // =========================================================================
 const BLOQUEAR_LOGS = [
     'PartialReadError', 'Read error for undefined', 'protodef', 'packet_world_particles', 
@@ -46,19 +47,12 @@ function deveBloquear(str) {
     return BLOQUEAR_LOGS.some(termo => str.toString().includes(termo));
 }
 
-// 1. Hook no stderr (Erros)
 const originalStderrWrite = process.stderr.write;
 process.stderr.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStderrWrite.apply(process.stderr, arguments) };
-
-// 2. Hook no console.error
 const originalConsoleError = console.error;
 console.error = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalConsoleError.apply(console, args) };
-
-// 3. Hook no stdout (Logs normais onde esse erro costuma vazar)
 const originalStdoutWrite = process.stdout.write;
 process.stdout.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStdoutWrite.apply(process.stdout, arguments) };
-
-// 4. Hook no console.log (Para garantir)
 const originalLog = console.log;
 console.log = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalLog.apply(console, args) };
 
@@ -73,6 +67,24 @@ let bot = null;
 let currentLogic = null;
 let reconnectTimer = null;
 let loopLobby = null; 
+
+// --- FUNÇÕES DE PERSISTÊNCIA (ATUALIZADAS PARA PLASMA_DB) ---
+function lerDB() {
+    try {
+        if (fs.existsSync(DB_FILE)) {
+            return JSON.parse(fs.readFileSync(DB_FILE));
+        }
+    } catch(e) {}
+    return { clientes: {} }; // Retorna estrutura padrão se falhar
+}
+
+function salvarDB(dados) {
+    try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(dados, null, 2));
+    } catch(e) {
+        console.log("Erro ao salvar DB:", e.message);
+    }
+}
 
 function iniciarBot() {
     if (reconnectTimer) clearTimeout(reconnectTimer);
@@ -98,15 +110,11 @@ function iniciarBot() {
         bot.on('spawn', () => {
             console.log('✅ Worker online e spawnado!');
             
-            // 1. Login Temporizado 
             setTimeout(() => {
                 bot.chat('/login ' + SENHA_PADRAO);
             }, 2000);
 
-            // 2. Loop de Lobby 
             iniciarLoopLobby();
-
-            // 3. Carregar Lógica
             carregarLogica();
         });
 
@@ -120,8 +128,6 @@ function iniciarBot() {
                 console.log(`🚨 Erro Worker: ${err.message}`);
             }
         });
-
-        // --- EVENTOS DE NAVEGAÇÃO ---
 
         bot.on('windowOpen', (window) => {
             if (window.type === 'minecraft:inventory') return;
@@ -141,19 +147,35 @@ function iniciarBot() {
                     if (loopLobby) clearInterval(loopLobby);
                     console.log("🚀 Entrada no servidor concluída.");
                     
-                    // --- FIX: COMANDO DE LOJA NO LOADER ---
-                    // Garante que o bot vá para a loja assim que entra no Survival
+                    // --- VERIFICAÇÃO DE LOJA ÚNICA (PLASMA_DB) ---
                     setTimeout(() => {
-                        console.log(`🛒 Enviando para loja: /loja ${LOJA_ID}`);
-                        bot.chat(`/loja ${LOJA_ID}`);
-                    }, 3000); // 3 segundos de delay para garantir carregamento
+                        const db = lerDB();
+                        
+                        // Verifica se o cliente existe no DB
+                        if (db.clientes && db.clientes[DONO]) {
+                            // Se NÃO tiver a flag visitouLoja, executa
+                            if (!db.clientes[DONO].visitouLoja) {
+                                console.log(`🛒 Primeira vez! Enviando para loja: /loja ${LOJA_ID}`);
+                                bot.chat(`/loja ${LOJA_ID}`);
+                                
+                                // Adiciona a flag e salva no mesmo arquivo
+                                db.clientes[DONO].visitouLoja = true;
+                                salvarDB(db);
+                            } else {
+                                console.log("ℹ️ Já visitou a loja anteriormente (DB). Pulando.");
+                            }
+                        } else {
+                            // Se rodar manualmente e o cliente não existir no DB, executa por segurança
+                            console.log("⚠️ Cliente não encontrado no DB. Executando loja por padrão.");
+                            bot.chat(`/loja ${LOJA_ID}`);
+                        }
+                    }, 3000);
 
                     if (currentLogic && currentLogic.onSurvival) currentLogic.onSurvival(bot);
                 }, 1000);
             }
         });
 
-        // --- CHAT DO SERVIDOR ---
         bot.on('chat', (username, message) => {
             if (username === bot.username) return;
             console.log(`[Chat] ${username}: ${message}`);
@@ -217,7 +239,8 @@ function carregarLogica() {
     try {
         const novaLogica = require(LOGIC_FILE);
         if (novaLogica.start) {
-            novaLogica.start(bot, { dono: DONO, loja: LOJA_ID });
+            // CORREÇÃO: Passando botName para a lógica
+            novaLogica.start(bot, { dono: DONO, loja: LOJA_ID, botName: BOT_NICK });
             currentLogic = novaLogica;
         }
     } catch (e) { console.log("Erro lógica:", e); }

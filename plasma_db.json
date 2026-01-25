@@ -46,6 +46,14 @@
       "motivo": "Sem negociação aberta",
       "status": "ENVIADO_AUTO",
       "data": "1/25/2026, 11:53:16 AM"
+    },
+    {
+      "id": 1769342944529,
+      "cliente": "WastoLord_13",
+      "valor": 1,
+      "motivo": "Sem negociação aberta",
+      "status": "ENVIADO_AUTO",
+      "data": "1/25/2026, 12:09:04 PM"
     }
   ]
 }

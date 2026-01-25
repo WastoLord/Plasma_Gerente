@@ -14,13 +14,13 @@ const CONFIG = {
     admins: ['WastoLord_13'], 
     precoSemana: 5000000, 
     
-    // Configuração de Entrada (Para ele sair do lobby e ir receber o dinheiro)
+    // Configuração de Entrada
     idItemMao: 'diamond',      
     idItemAlvo: 'golden_axe'   
 }
 
 // =========================================================================
-// 🛡️ SILENCIADOR SUPREMO V4.1 (BLOQUEIA TUDO)
+// 🛡️ SILENCIADOR SUPREMO V4.1
 // =========================================================================
 const BLOQUEAR_LOGS = [
     'PartialReadError', 'Read error for undefined', 'protodef', 'packet_world_particles', 
@@ -36,19 +36,12 @@ function deveBloquear(str) {
     return BLOQUEAR_LOGS.some(termo => str.toString().includes(termo))
 }
 
-// 1. Hook no stderr (Erros)
 const originalStderrWrite = process.stderr.write
 process.stderr.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStderrWrite.apply(process.stderr, arguments) }
-
-// 2. Hook no console.error
 const originalConsoleError = console.error
 console.error = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalConsoleError.apply(console, args) }
-
-// 3. Hook no stdout (Logs comuns)
 const originalStdoutWrite = process.stdout.write
 process.stdout.write = function(chunk) { if (deveBloquear(chunk)) return false; return originalStdoutWrite.apply(process.stdout, arguments) }
-
-// 4. Hook no console.log
 const originalLog = console.log
 console.log = function(...args) { if (args.some(arg => deveBloquear(arg))) return; originalLog.apply(console, args) }
 
@@ -68,7 +61,6 @@ rl.on('line', (input) => {
         return
     }
 
-    // COMANDO DE TESTE: teste <nick>
     if (cmd.startsWith('teste ')) {
         const nick = cmd.split(' ')[1]
         if (nick) adicionarTeste(nick)
@@ -101,7 +93,6 @@ function salvarDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2))
 }
 
-// --- FUNÇÃO DE SEQUÊNCIA DE MENSAGENS (ANTI-FLOOD) ---
 function enviarSequencia(mensagens, delay = 3500) { 
     mensagens.forEach((msg, index) => {
         setTimeout(() => {
@@ -113,7 +104,6 @@ function enviarSequencia(mensagens, delay = 3500) {
     })
 }
 
-// --- FUNÇÃO MESTRE DE INICIALIZAÇÃO ---
 function iniciarGerente() {
     console.log(`🔌 (Re)Conectando Gerente em ${CONFIG.host}...`)
     
@@ -128,12 +118,10 @@ function iniciarGerente() {
 
     bot.on('spawn', () => {
         console.log('✅ Gerente Plasma online e spawnado!')
-        
         setTimeout(() => bot.chat('/login ' + CONFIG.password), 2000)
         
         loopExpiracao = setInterval(verificarExpiracoes, 10 * 60 * 1000)
         iniciarLoopLobby()
-        // Delay maior na restauração para garantir que o Gerente estabilizou no Survival
         setTimeout(restaurarSessoesAntigas, 10000)
     })
 
@@ -147,8 +135,6 @@ function iniciarGerente() {
             console.log(`🚨 Erro Gerente: ${err.message}`)
         }
     })
-
-    // --- EVENTOS DO JOGO ---
     
     bot.on('windowOpen', (window) => {
         if (window.type === 'minecraft:inventory') return
@@ -165,18 +151,18 @@ function iniciarGerente() {
         }
     })
 
+    // --- SEGURANÇA REFORÇADA NO MESSAGE ---
     bot.on('message', (jsonMsg) => {
         const msg = jsonMsg.toString()
         if (msg.trim().length > 0) console.log(`[Servidor] ${msg}`)
+        
         if (jsonMsg) tratarLoginAuth(bot, jsonMsg)
         
-        // Auto-Registro
         if (msg.toLowerCase().includes('/registrar') || msg.toLowerCase().includes('/register') || msg.includes('não foi registrado')) {
             console.log('📝 Criando conta...')
             setTimeout(() => bot.chat(`/register ${CONFIG.password} ${CONFIG.password}`), 1500)
         }
 
-        // Detector de Tell
         const REGEX_TELL = /\[Privado\] Mensagem de (?:\[.*?\] )?(\w+): (.+)/i
         const matchTell = msg.match(REGEX_TELL)
         if (matchTell) {
@@ -186,17 +172,29 @@ function iniciarGerente() {
             tratarComandosCliente(sender, content)
         }
 
-        processarPagamento(msg)
+        // --- VERIFICAÇÃO ANTI-FRAUDE ---
+        // Se a mensagem contém ":", provavelmente é chat de player (Nick: msg)
+        // Mensagens de sistema (PIX) geralmente não têm ":" antes do conteúdo ou vêm em JSON especial
+        // A regex abaixo procura padrões de chat comuns para IGNORAR
+        const isPlayerChat = /^(?:\[.*?\]\s*)?(\w+)\s*:/i.test(msg) || jsonMsg.toString().startsWith('<');
+        
+        if (!isPlayerChat) {
+            processarPagamento(msg)
+        } else {
+            // Se alguém tentar forjar, podemos logar
+            if (msg.includes('[PIX]')) {
+                console.log(`⚠️ ALERTA DE FRAUDE: Mensagem de PIX detectada em chat de jogador. Ignorando.`)
+            }
+        }
     })
 
+    // Evento Chat separado apenas para log e comandos, não para pagamentos
     bot.on('chat', (username, message) => {
         if (username === bot.username) return
         console.log(`[Chat] ${username}: ${message}`) 
         tratarComandosCliente(username, message)
     })
 }
-
-// --- SISTEMAS AUXILIARES ---
 
 function iniciarLoopLobby() {
     if (loopLobby) clearInterval(loopLobby)
@@ -231,7 +229,6 @@ function tratarComandosCliente(username, messageRaw) {
     else if (message === 'confirmar') {
         const negociacao = db.negociacoes[username]
         if (negociacao && negociacao.estado === 'aguardando_confirmacao') {
-            // CORREÇÃO: Ordem /pix <Nick> <Valor>
             bot.chat(`/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)} (/pix ${bot.username} ${CONFIG.precoSemana}).`)
             negociacao.estado = 'aguardando_pagamento'
             salvarDB()
@@ -247,7 +244,6 @@ function tratarComandosCliente(username, messageRaw) {
     }
 }
 
-// --- SISTEMA FINANCEIRO ---
 const REGEX_PAGAMENTO = /\[PIX\] Você recebeu ([\d.,]+) de (\w+)/i
 
 function processarPagamento(msg) {
@@ -288,7 +284,6 @@ function reembolsarSeguro(cliente, valor, motivo) {
 
     console.log(`💸 Iniciando reembolso para ${cliente}...`)
 
-    // CORREÇÃO: Ordem /pix <Nick> <Valor>
     enviarSequencia([
         `/pix ${cliente} ${valor}`,
         `/tell ${cliente} Reembolso enviado: ${motivo}.`
@@ -315,7 +310,6 @@ function verificarPendencias() {
         pendentes.forEach(p => {
             console.log(`- ${p.data}: ${p.cliente} -> $${p.valor} (Motivo: ${p.motivo})`)
         })
-        // CORREÇÃO: Texto de ajuda no log corrigido para ordem certa
         console.log("Use '/pix Nick Valor' manualmente para resolver.")
     }
     console.log("-----------------------------------------------")
@@ -346,12 +340,10 @@ function aceitarContrato(cliente) {
     salvarDB()
 }
 
-// FUNÇÃO UNIFICADA: ADICIONAR OU RENOVAR (+ COMANDO DE TESTE)
 function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
     const nickLimpo = cliente.replace(/[^a-zA-Z0-9_]/g, '').substring(0, 8)
     const botName = `Plasma_${nickLimpo}`
     
-    // Data base é agora OU o fim do contrato atual se já existir
     const baseTime = (db.clientes[cliente] && db.clientes[cliente].dataFim > Date.now()) 
         ? db.clientes[cliente].dataFim 
         : Date.now()
@@ -360,7 +352,7 @@ function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
         botName, 
         dataInicio: Date.now(), 
         dataFim: baseTime + duracaoMs, 
-        lojaId: 'plasma' // Definido padrão plasma no DB também
+        lojaId: 'plasma'
     }
     salvarDB()
 
@@ -373,11 +365,9 @@ function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
         ], 3000)
     }
     
-    // Inicia (com delay para não atropelar as mensagens acima)
     setTimeout(() => iniciarSessaoTmux(cliente, botName, db.clientes[cliente] ? true : false), 6000)
 }
 
-// COMANDO DE TESTE (1 HORA)
 function adicionarTeste(cliente) {
     console.log(`🧪 Adicionando teste de 1h para ${cliente}...`)
     adicionarOuRenovar(cliente, 60 * 60 * 1000, false)
@@ -385,9 +375,6 @@ function adicionarTeste(cliente) {
 
 function iniciarSessaoTmux(cliente, botName, restauracao = false) {
     const sessionName = `plasma_${cliente.toLowerCase().substring(0, 8)}`
-    
-    // ATUALIZAÇÃO: Removido o argumento 'loja' fixo.
-    // Agora ele passa apenas 2 argumentos e o loader assume 'plasma'
     const comando = `tmux new-session -d -s ${sessionName} "node worker_loader.js ${cliente} ${botName}"`
 
     exec(comando, (error, stdout, stderr) => {
@@ -447,5 +434,4 @@ function formatarDinheiro(valor) {
     return valor.toLocaleString('pt-BR')
 }
 
-// INICIA TUDO
 iniciarGerente()

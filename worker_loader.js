@@ -248,7 +248,6 @@ function carregarLogica() {
     try {
         const novaLogica = require(LOGIC_FILE);
         if (novaLogica.start) {
-            // CORREÇÃO: Passando senha segura para a lógica também
             novaLogica.start(bot, { dono: DONO, loja: LOJA_ID, botName: BOT_NICK, password: SENHA_PADRAO });
             currentLogic = novaLogica;
         }

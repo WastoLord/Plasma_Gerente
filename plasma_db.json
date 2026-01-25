@@ -2,17 +2,20 @@
   "clientes": {
     "WastoLord_13": {
       "botName": "Plasma_WastoLor",
-      "dataInicio": 1769373365588,
-      "dataFim": 1771082051208,
-      "lojaId": "plasma"
+      "dataInicio": 1769374337273,
+      "dataFim": 1771686851208,
+      "lojaId": "plasma",
+      "visitouLoja": true
+    },
+    "teste": {
+      "botName": "Plasma_teste",
+      "dataInicio": 1769374469252,
+      "dataFim": 1769812822412,
+      "lojaId": "plasma",
+      "visitouLoja": true
     }
   },
-  "negociacoes": {
-    "WastoLord_13": {
-      "estado": "aguardando_confirmacao",
-      "timestamp": 1769373490759
-    }
-  },
+  "negociacoes": {},
   "reembolsos": [
     {
       "id": 1769373382265,
@@ -21,6 +24,14 @@
       "motivo": "Sem negociação aberta",
       "status": "ENVIADO_AUTO",
       "data": "1/25/2026, 8:36:22 PM"
+    },
+    {
+      "id": 1769374294420,
+      "cliente": "WastoLord_13",
+      "valor": 1,
+      "motivo": "Sem negociação aberta",
+      "status": "ENVIADO_AUTO",
+      "data": "1/25/2026, 8:51:34 PM"
     }
   ]
 }

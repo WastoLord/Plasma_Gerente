@@ -4,18 +4,18 @@ module.exports = {
             config: {
                 dono: args.dono,
                 botName: args.botName,
-                loja: args.loja || 'plasma',
-                // AGORA USA A SENHA RECEBIDA DO LOADER (QUE VEIO DO ENV)
+                loja: args.loja || 'loja',
                 password: args.password, 
-                admins: ['WastoLord_13'],
                 
-                // Combate
+                // SEGURANÇA: Admins globais removidos.
+                // Use o comando 'suporte' para se adicionar dinamicamente.
+                admins: [], 
+                
                 combat: {
                     speed: 600,
                     range: 3.5,
                     searchRange: 20
                 },
-                // Entrada
                 entry: {
                     handItem: 'diamond',
                     menuItem: 'golden_axe'

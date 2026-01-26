@@ -56,10 +56,15 @@ async function dropItems(bot, ctx, destinationUser) {
 
     feedback(bot, ctx, "📦 Dropando...");
 
-    // 2. Olhar para o jogador (APENAS UMA VEZ no início, igual ao antigo)
+    // 2. Olhar para o jogador
     try {
         // true no final força o envio imediato do pacote de rotação
         await bot.lookAt(playerEntity.position.offset(0, 1.6, 0), true);
+        
+        // --- DELAY DE 0.8 SEGUNDOS ---
+        // Espera 800ms para garantir que a cabeça virou antes de jogar
+        await delay(800);
+        
     } catch (e) {
         console.log("Erro ao mirar:", e.message);
     }
@@ -74,7 +79,6 @@ async function dropItems(bot, ctx, destinationUser) {
         
         try { 
             // LÓGICA PURA DO BOT ANTIGO: Apenas joga e espera
-            // Removemos o 'bot.lookAt' daqui de dentro para não travar o drop
             await bot.tossStack(item); 
             await bot.waitForTicks(2); 
         } catch(e){

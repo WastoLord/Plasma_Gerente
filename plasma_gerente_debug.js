@@ -275,7 +275,20 @@ function tratarComandosCliente(username, messageRaw) {
                     ])
                 }
             }, 5 * 60 * 1000)
-    
+            
+            // ❌ cancelamento automático após 15 minutos
+            setTimeout(() => {
+                const n = db.negociacoes[username]
+                if (n && n.estado === 'aguardando_pagamento') {
+                    delete db.negociacoes[username]
+                    salvarDB()
+                    enviarSequencia([
+                        `/tell ${username} ❌ Sua negociação foi cancelada por inatividade.`,
+                        `/tell ${username} Para tentar novamente, digite: negociar`
+                    ])
+                }
+            }, 15 * 60 * 1000)
+
         } else {
             enviarSequencia([`/tell ${username} Digite negociar para iniciar.`])
         }

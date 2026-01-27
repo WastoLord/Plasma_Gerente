@@ -65,7 +65,10 @@ rl.on('line', (input) => {
     
     if (cmd === 'pendentes' || cmd === 'verificar' || cmd === 'bots') {
         if (cmd === 'pendentes') verificarPendencias()
-        else restaurarSessoesAntigas()
+        else {
+            recarregarDB()
+            restaurarSessoesAntigas()
+        }
         return
     }
 
@@ -75,6 +78,7 @@ rl.on('line', (input) => {
         const nick = parts[1]
         const dias = parts[2]
         if (nick) adicionarTeste(nick, dias)
+        recarregarDB()
         return
     }
 
@@ -102,6 +106,18 @@ if (fs.existsSync(DB_FILE)) {
 
 function salvarDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2))
+}
+
+function recarregarDB() {
+    if (fs.existsSync(DB_FILE)) {
+        try {
+            const loaded = JSON.parse(fs.readFileSync(DB_FILE))
+            db = { ...db, ...loaded }
+            console.log("🔄 DB recarregado da disk.")
+        } catch (e) {
+            console.log("⚠️ Erro ao recarregar DB:", e.message)
+        }
+    }
 }
 
 // ================ FILA GLOBAL DE MENSAGENS ================

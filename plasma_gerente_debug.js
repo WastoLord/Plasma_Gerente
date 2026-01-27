@@ -16,7 +16,7 @@ if (!SENHA_BOT) {
 const CONFIG = {
     host: 'jogar.craftsapiens.com.br',
     port: 25565,
-    username: 'Plasma_Gerente',
+    username: 'Plasma_GDebug',
     password: SENHA_BOT, 
     auth: 'offline',
     version: '1.21.4',

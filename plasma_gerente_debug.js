@@ -223,6 +223,20 @@ function iniciarLoopLobby() {
 function tratarComandosCliente(username, messageRaw) {
     const message = messageRaw.replace(/\./g, '').trim().toLowerCase()
 
+    if (!db.interacoes) db.interacoes = {}
+    
+    if (!db.interacoes[username]) {
+        db.interacoes[username] = Date.now()
+        salvarDB()
+    
+        enviarSequencia([
+            `/tell ${username} Olá! Sou o Gerente da loja Plasma 🤖`,
+            `/tell ${username} Posso te ajudar a contratar um bot.`,
+            `/tell ${username} Para começar, digite: negociar`
+        ])
+        return
+    }
+
     if (message === 'negociar' || message.includes('comprar bot')) {
         let msgs = []
         if (db.clientes[username]) {

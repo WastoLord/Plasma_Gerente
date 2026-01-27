@@ -222,6 +222,26 @@ function iniciarLoopLobby() {
 
 function tratarComandosCliente(username, messageRaw) {
     const message = messageRaw.replace(/\./g, '').trim().toLowerCase()
+    // ⏳ CONSULTA DE TEMPO
+    if (message === 'tempo' || message === 'status' || message === 'meu bot') {
+        const dados = db.clientes[username]
+    
+        if (!dados) {
+            enviarSequencia([
+                `/tell ${username} ❌ Você não possui um bot ativo.`
+            ])
+        } else {
+            const restante = dados.dataFim - Date.now()
+            const horas = Math.floor(restante / (1000 * 60 * 60))
+            const minutos = Math.floor((restante % (1000 * 60 * 60)) / (1000 * 60))
+    
+            enviarSequencia([
+                `/tell ${username} ⏳ Tempo restante: ${horas}h ${minutos}min.`,
+                `/tell ${username} Válido até ${new Date(dados.dataFim).toLocaleString('pt-BR')}.`
+            ])
+        }
+        return
+    }
 
     if (!db.interacoes) db.interacoes = {}
     

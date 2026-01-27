@@ -60,7 +60,8 @@ process.on('unhandledRejection', () => {})
 // --- CHAT MANUAL ---
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
 rl.on('line', (input) => { 
-    const cmd = input.trim().toLowerCase()
+    const raw = input.trim()
+    const cmd = raw.toLowerCase()
     
     if (cmd === 'pendentes' || cmd === 'verificar' || cmd === 'bots') {
         if (cmd === 'pendentes') verificarPendencias()
@@ -70,7 +71,7 @@ rl.on('line', (input) => {
 
     // COMANDO DE TESTE: teste <nick> [dias]
     if (cmd.startsWith('teste ')) {
-        const parts = cmd.split(' ')
+        const parts = raw.split(' ') // usa o original, com maiúsculas
         const nick = parts[1]
         const dias = parts[2]
         if (nick) adicionarTeste(nick, dias)

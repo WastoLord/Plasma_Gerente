@@ -256,13 +256,31 @@ function tratarComandosCliente(username, messageRaw) {
     else if (message === 'confirmar') {
         const negociacao = db.negociacoes[username]
         if (negociacao && negociacao.estado === 'aguardando_confirmacao') {
-            bot.chat(`/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)} (/pix ${bot.username} ${CONFIG.precoSemana}).`)
+    
             negociacao.estado = 'aguardando_pagamento'
             salvarDB()
+    
+            enviarSequencia([
+                `/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)}.`,
+                `/tell ${username} Use: /pix ${bot.username} ${CONFIG.precoSemana}`
+            ])
+    
+            // ⏰ lembrete automático após 5 minutos
+            setTimeout(() => {
+                const n = db.negociacoes[username]
+                if (n && n.estado === 'aguardando_pagamento') {
+                    enviarSequencia([
+                        `/tell ${username} ⏳ Seu pagamento ainda não foi recebido.`,
+                        `/tell ${username} Para continuar, envie o PIX ou digite negociar.`
+                    ])
+                }
+            }, 5 * 60 * 1000)
+    
         } else {
-            bot.chat(`/tell ${username} Digite "negociar" para iniciar um pedido.`)
+            enviarSequencia([`/tell ${username} Digite negociar para iniciar.`])
         }
     }
+
     
     if (CONFIG.admins.includes(username) && messageRaw.startsWith('cmd ')) {
         const comando = messageRaw.replace('cmd ', '')

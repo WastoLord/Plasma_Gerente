@@ -22,7 +22,6 @@ const CONFIG = {
     version: '1.21.4',
     admins: ['WastoLord_13'], 
     precoSemana: 5000000, 
-    
     idItemMao: 'diamond',      
     idItemAlvo: 'golden_axe'   
 }
@@ -61,20 +60,25 @@ process.on('unhandledRejection', () => {})
 // --- CHAT MANUAL ---
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
 rl.on('line', (input) => { 
-    const cmd = input.trim().toLowerCase()
+    const raw = input.trim()
+    const cmd = raw.toLowerCase()
     
     if (cmd === 'pendentes' || cmd === 'verificar' || cmd === 'bots') {
         if (cmd === 'pendentes') verificarPendencias()
-        else restaurarSessoesAntigas()
+        else {
+            recarregarDB()
+            restaurarSessoesAntigas()
+        }
         return
     }
 
     // COMANDO DE TESTE: teste <nick> [dias]
     if (cmd.startsWith('teste ')) {
-        const parts = cmd.split(' ')
+        const parts = raw.split(' ') // usa o original, com maiúsculas
         const nick = parts[1]
         const dias = parts[2]
         if (nick) adicionarTeste(nick, dias)
+        recarregarDB()
         return
     }
 
@@ -104,15 +108,43 @@ function salvarDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2))
 }
 
+function recarregarDB() {
+    if (fs.existsSync(DB_FILE)) {
+        try {
+            const loaded = JSON.parse(fs.readFileSync(DB_FILE))
+            db = { ...db, ...loaded }
+            console.log("🔄 DB recarregado da disk.")
+        } catch (e) {
+            console.log("⚠️ Erro ao recarregar DB:", e.message)
+        }
+    }
+}
+
+// ================ FILA GLOBAL DE MENSAGENS ================
+let filaChat = []
+let processandoFila = false
+
 function enviarSequencia(mensagens, delay = 3500) { 
-    mensagens.forEach((msg, index) => {
-        setTimeout(() => {
-            if (bot && bot.entity) {
-                console.log(`[Debug Chat] Enviando: ${msg}`)
-                bot.chat(msg)
-            }
-        }, index * delay)
+    mensagens.forEach((msg) => {
+        filaChat.push({ msg, delay })
     })
+    processarFila()
+}
+
+function processarFila() {
+    if (processandoFila || filaChat.length === 0) return
+    processandoFila = true
+    const { msg, delay } = filaChat.shift()
+
+    if (bot && bot.entity) {
+        console.log(`[Debug Chat] Enviando: ${msg}`)
+        bot.chat(msg)
+    }
+
+    setTimeout(() => {
+        processandoFila = false
+        processarFila()
+    }, delay)
 }
 
 function iniciarGerente() {
@@ -190,11 +222,7 @@ function iniciarGerente() {
         if (!isPlayerChat) processarPagamento(msg)
     })
 
-    bot.on('chat', (username, message) => {
-        if (username === bot.username) return
-        console.log(`[Chat] ${username}: ${message}`) 
-        tratarComandosCliente(username, message)
-    })
+    // bot.on('chat'...) REMOVIDO - respostas apenas via /tell
 }
 
 function iniciarLoopLobby() {
@@ -211,6 +239,40 @@ function iniciarLoopLobby() {
 
 function tratarComandosCliente(username, messageRaw) {
     const message = messageRaw.replace(/\./g, '').trim().toLowerCase()
+    // ⏳ CONSULTA DE TEMPO
+    if (message === 'tempo' || message === 'status' || message === 'meu bot') {
+        const dados = db.clientes[username]
+    
+        if (!dados) {
+            enviarSequencia([
+                `/tell ${username} ❌ Você não possui um bot ativo.`
+            ])
+        } else {
+            const restante = dados.dataFim - Date.now()
+            const horas = Math.floor(restante / (1000 * 60 * 60))
+            const minutos = Math.floor((restante % (1000 * 60 * 60)) / (1000 * 60))
+    
+            enviarSequencia([
+                `/tell ${username} ⏳ Tempo restante: ${horas}h ${minutos}min.`,
+                `/tell ${username} Válido até ${new Date(dados.dataFim).toLocaleString('pt-BR')}.`
+            ])
+        }
+        return
+    }
+
+    if (!db.interacoes) db.interacoes = {}
+    
+    if (!db.interacoes[username]) {
+        db.interacoes[username] = Date.now()
+        salvarDB()
+    
+        enviarSequencia([
+            `/tell ${username} Olá! Sou o Gerente da loja Plasma 🤖`,
+            `/tell ${username} Posso te ajudar a contratar um bot.`,
+            `/tell ${username} Para começar, digite: negociar`
+        ])
+        return
+    }
 
     if (message === 'negociar' || message.includes('comprar bot')) {
         let msgs = []
@@ -231,13 +293,44 @@ function tratarComandosCliente(username, messageRaw) {
     else if (message === 'confirmar') {
         const negociacao = db.negociacoes[username]
         if (negociacao && negociacao.estado === 'aguardando_confirmacao') {
-            bot.chat(`/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)} (/pix ${bot.username} ${CONFIG.precoSemana}).`)
+    
             negociacao.estado = 'aguardando_pagamento'
             salvarDB()
+    
+            enviarSequencia([
+                `/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)}.`,
+                `/tell ${username} Use: /pix ${bot.username} ${CONFIG.precoSemana}`
+            ])
+    
+            // ⏰ lembrete automático após 5 minutos
+            setTimeout(() => {
+                const n = db.negociacoes[username]
+                if (n && n.estado === 'aguardando_pagamento') {
+                    enviarSequencia([
+                        `/tell ${username} ⏳ Seu pagamento ainda não foi recebido.`,
+                        `/tell ${username} Para continuar, envie o PIX ou digite negociar.`
+                    ])
+                }
+            }, 5 * 60 * 1000)
+            
+            // ❌ cancelamento automático após 15 minutos
+            setTimeout(() => {
+                const n = db.negociacoes[username]
+                if (n && n.estado === 'aguardando_pagamento') {
+                    delete db.negociacoes[username]
+                    salvarDB()
+                    enviarSequencia([
+                        `/tell ${username} ❌ Sua negociação foi cancelada por inatividade.`,
+                        `/tell ${username} Para tentar novamente, digite: negociar`
+                    ])
+                }
+            }, 15 * 60 * 1000)
+
         } else {
-            bot.chat(`/tell ${username} Digite "negociar" para iniciar um pedido.`)
+            enviarSequencia([`/tell ${username} Digite negociar para iniciar.`])
         }
     }
+
     
     if (CONFIG.admins.includes(username) && messageRaw.startsWith('cmd ')) {
         const comando = messageRaw.replace('cmd ', '')
@@ -288,7 +381,9 @@ function reembolsarSeguro(cliente, valor, motivo) {
 
     enviarSequencia([
         `/pix ${cliente} ${valor}`,
-        `/tell ${cliente} Reembolso enviado: ${motivo}.`
+        `/tell ${cliente} ⚠️ O valor recebido não confere.`,
+        `/tell ${cliente} Para sua segurança, o valor foi devolvido automaticamente.`,
+        `/tell ${cliente} Se desejar, você pode iniciar novamente digitando: negociar`
     ], 4000)
 
     setTimeout(() => {
@@ -400,6 +495,8 @@ function iniciarSessaoTmux(cliente, botName, restauracao = false) {
         } else {
             if (error.message.includes('duplicate')) {
                if (restauracao) console.log(`ℹ️ Bot de ${cliente} já está rodando.`)
+            } else {
+               console.log(`Erro ao iniciar tmux para ${cliente}: ${error.message}`)
             }
         }
     })

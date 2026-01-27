@@ -16,7 +16,7 @@ if (!SENHA_BOT) {
 const CONFIG = {
     host: 'jogar.craftsapiens.com.br',
     port: 25565,
-    username: 'Plasma_GDebug',
+    username: 'Plasma_Gerente',
     password: SENHA_BOT, 
     auth: 'offline',
     version: '1.21.4',
@@ -373,7 +373,7 @@ function reembolsarSeguro(cliente, valor, motivo) {
         valor: valor,
         motivo: motivo,
         status: 'PENDENTE',
-        data: new Date().toLocaleString()
+        data: new Date().toLocaleString('pt-BR')
     })
     salvarDB()
 
@@ -458,7 +458,7 @@ function adicionarOuRenovar(cliente, duracaoMs, pago = false) {
     if (pago) {
         enviarSequencia([
             `/tell ${cliente} ✅ ${db.clientes[cliente] ? 'Renovação' : 'Compra'} confirmada!`,
-            `/tell ${cliente} Bot garantido até ${new Date(db.clientes[cliente].dataFim).toLocaleString()}.`
+            `/tell ${cliente} Bot garantido até ${new Date(db.clientes[cliente].dataFim).toLocaleString('pt-BR')}.`
         ], 3000)
     }
     

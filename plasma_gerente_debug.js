@@ -292,6 +292,22 @@ function tratarComandosCliente(username, messageRaw) {
     }
 
     const message = messageRaw.replace(/\./g, '').trim().toLowerCase()
+    
+    // 💰 CONSULTA DE SALDO ACUMULADO
+    if (message === 'saldo' || message === 'meu saldo' || message === 'carteira') {
+        const saldo = db.saldos[username]
+        if (!saldo || saldo.valor <= 0) {
+            enviarSequencia([`/tell ${username} ❌ Você não possui saldo acumulado.`])
+        } else {
+            enviarSequencia([
+                `/tell ${username} 💰 Seu saldo acumulado: $${formatarDinheiro(saldo.valor)}`,
+                `/tell ${username} Para usar na contratação, digite: negociar`,
+                `/tell ${username} Para receber de volta, digite: devolver`
+            ])
+        }
+        return
+    }
+
     // ⏳ CONSULTA DE TEMPO
     if (message === 'tempo' || message === 'status' || message === 'meu bot') {
         const dados = db.clientes[username]
@@ -426,44 +442,50 @@ function processarPagamento(msg) {
     const pagador = match[2]
     console.log(`💰 Pagamento detectado: ${valorRecebido} de ${pagador}`)
 
-    const negociacao = db.negociacoes[pagador]
-    if (!negociacao || negociacao.estado !== 'aguardando_pagamento') {
-        reembolsarSeguro(pagador, valorRecebido, "Sem negociação aberta")
-        return
-    }
-
-    // 📦 saldo acumulado
+    // 📦 saldo acumulado (Sempre acumula, independente de negociação)
     if (!db.saldos) db.saldos = {}
     if (!db.saldos[pagador]) {
         db.saldos[pagador] = {
             valor: 0,
-            criadoEm: Date.now()
+            criadoEm: Date.now(),
+            avisosEnviados: 0
         }
     }
 
     db.saldos[pagador].valor =
         Math.round((db.saldos[pagador].valor + valorRecebido) * 100) / 100
+    db.saldos[pagador].criadoEm = Date.now() // Renova a expiração a cada depósito
 
     salvarDB()
 
     const total = db.saldos[pagador].valor
     const falta = Math.round((CONFIG.precoSemana - total) * 100) / 100
 
-    // ⏳ ainda não completou
-    if (total < CONFIG.precoSemana) {
-        enviarSequencia([
-            `/tell ${pagador} 💰 Valor recebido: $${valorRecebido}`,
-            `/tell ${pagador} 📦 Total acumulado: $${total}`,
-            `/tell ${pagador} ⏳ Falta: $${falta}`,
-            `/tell ${pagador} Digite: devolver para reembolso`
-        ])
-        return
+    const negociacao = db.negociacoes[pagador]
+    
+    // 📢 Controle de avisos para não repetir sempre
+    if (db.saldos[pagador].avisosEnviados < 2) {
+        db.saldos[pagador].avisosEnviados++
+        salvarDB()
+        
+        if (total < CONFIG.precoSemana) {
+            enviarSequencia([
+                `/tell ${pagador} 💰 Recebi seu PIX de $${valorRecebido}!`,
+                `/tell ${pagador} 📦 Total acumulado: $${formatarDinheiro(total)}`,
+                `/tell ${pagador} ℹ️ Para ver o saldo a qualquer momento, digite: saldo`
+            ])
+        }
+    } else {
+        console.log(`[Silencioso] Saldo de ${pagador} atualizado para ${total}`)
     }
 
-    // ✅ valor completo
-    delete db.saldos[pagador]
-    salvarDB()
-    aceitarContrato(pagador)
+    // 🚀 Se estiver em negociação e atingir o valor
+    if (negociacao && negociacao.estado === 'aguardando_pagamento' && total >= CONFIG.precoSemana) {
+        // ✅ valor completo
+        delete db.saldos[pagador]
+        salvarDB()
+        aceitarContrato(pagador)
+    }
 }
 
 

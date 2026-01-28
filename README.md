@@ -79,8 +79,3 @@ Painel HTML separado do bot, com:
 Atualização automática.
 
 ---
-
-Se quiser, no próximo passo posso:
-
-* transformar isso em **README.md pronto**
-* ou escrever uma **mensagem curta de divulgação** para jogadores.

@@ -108,6 +108,8 @@ if (fs.existsSync(DB_FILE)) {
         db = { ...db, ...loaded } 
     } catch(e) { console.log("DB Novo criado.") }
 }
+// garante compatibilidade com DB antigo
+if (!db.saldos) db.saldos = {}
 
 function salvarDB() {
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2))
@@ -374,25 +376,55 @@ const REGEX_PAGAMENTO = /\[PIX\] Você recebeu ([\d.,]+) de (\w+)/i
 
 function processarPagamento(msg) {
     const match = msg.match(REGEX_PAGAMENTO)
-    if (match) {
-        const valorTexto = match[1].replace(/\./g, '').replace(',', '.') 
-        const valor = parseFloat(valorTexto)
-        const pagador = match[2]
-        console.log(`💰 Pagamento detectado: ${valor} de ${pagador}`)
-        
-        const negociacao = db.negociacoes[pagador]
-        
-        if (negociacao && negociacao.estado === 'aguardando_pagamento') {
-            if (Math.abs(valor - CONFIG.precoSemana) < 100) { 
-                aceitarContrato(pagador)
-            } else {
-                reembolsarSeguro(pagador, valor, "Valor incorreto")
-            }
-        } else {
-            reembolsarSeguro(pagador, valor, "Sem negociação aberta")
+    if (!match) return
+
+    // 🔐 conversão segura (sem bug de centavos)
+    const valorRecebido = Math.round(parseFloat(match[1].replace(',', '.')) * 100) / 100
+    if (isNaN(valorRecebido) || valorRecebido <= 0) return
+
+    const pagador = match[2]
+    console.log(`💰 Pagamento detectado: ${valorRecebido} de ${pagador}`)
+
+    const negociacao = db.negociacoes[pagador]
+    if (!negociacao || negociacao.estado !== 'aguardando_pagamento') {
+        reembolsarSeguro(pagador, valorRecebido, "Sem negociação aberta")
+        return
+    }
+
+    // 📦 saldo acumulado
+    if (!db.saldos) db.saldos = {}
+    if (!db.saldos[pagador]) {
+        db.saldos[pagador] = {
+            valor: 0,
+            criadoEm: Date.now()
         }
     }
+
+    db.saldos[pagador].valor =
+        Math.round((db.saldos[pagador].valor + valorRecebido) * 100) / 100
+
+    salvarDB()
+
+    const total = db.saldos[pagador].valor
+    const falta = Math.round((CONFIG.precoSemana - total) * 100) / 100
+
+    // ⏳ ainda não completou
+    if (total < CONFIG.precoSemana) {
+        enviarSequencia([
+            `/tell ${pagador} 💰 Valor recebido: $${valorRecebido}`,
+            `/tell ${pagador} 📦 Total acumulado: $${total}`,
+            `/tell ${pagador} ⏳ Falta: $${falta}`,
+            `/tell ${pagador} Digite: devolver para reembolso`
+        ])
+        return
+    }
+
+    // ✅ valor completo
+    delete db.saldos[pagador]
+    salvarDB()
+    aceitarContrato(pagador)
 }
+
 
 function reembolsarSeguro(cliente, valor, motivo) {
     const idTransacao = Date.now()

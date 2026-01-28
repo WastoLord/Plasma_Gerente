@@ -1,12 +1,27 @@
-# Plasma_Gerente
-Bot vendedor de bots
 ---
 
 ## 🤖 Gerente da Loja Plasma
 
-O **Gerente Plasma** é um bot automatizado responsável pela venda, gestão e controle de bots no servidor, com sistema de negociação segura, pagamentos parciais, anti-spam e histórico completo de clientes.
+O **Gerente Plasma** é um bot automatizado responsável pela venda, gestão e controle de bots operacionais (Workers) no servidor, com sistema de negociação segura, pagamentos parciais, anti-spam e histórico completo de clientes.
 
 Toda a comunicação com jogadores ocorre **exclusivamente via /tell**, evitando interferência no chat global.
+
+---
+
+## 🧩 Bot Operacional Plasma (Workers)
+
+Os **Bots Operacionais Plasma (Workers)** são os bots que realizam a função contratada pelo cliente (ex: mineração, presença, automação, etc.).
+
+O **Gerente Plasma** é responsável por:
+
+* iniciar os workers
+* encerrar automaticamente ao expirar
+* renovar quando contratado novamente
+* manter isolamento entre clientes
+* garantir funcionamento durante o período contratado
+
+⚠️ O jogador **não interage diretamente** com os workers.
+Toda comunicação, pagamentos e status passam pelo **Gerente**.
 
 ---
 
@@ -24,58 +39,71 @@ Toda a comunicação com jogadores ocorre **exclusivamente via /tell**, evitando
 | `preco` *(se ativado)* | Mostra o valor do aluguel                |
 
 📌 O jogador pode pagar **aos poucos**.
-O valor é acumulado automaticamente até atingir o preço do bot.
+O valor é acumulado automaticamente até atingir o valor do bot.
 
 ---
 
 ## 🛡️ Proteções Automáticas
 
-* **Anti-spam**:
-  Mais de 10 mensagens em 1 minuto → bloqueio por 5 minutos.
-* **Pagamentos parciais** acumulados com segurança.
-* **Expiração de saldo** após 2 dias.
-* **Negociação cancelada automaticamente** por inatividade.
+* Anti-spam (10 mensagens/min → bloqueio 5 min)
+* Pagamentos parciais acumulados
+* Cancelamento automático de negociação
+* Expiração de saldo acumulado (2 dias)
+* Comunicação restrita a /tell
 
 ---
 
-## 👑 Comandos de Administrador (no terminal)
+## 👑 Comandos de Administrador (Terminal)
 
-Executados diretamente no terminal onde o gerente roda.
+Executados diretamente no terminal onde o gerente está rodando.
 
-| Comando                 | Função                      |
-| ----------------------- | --------------------------- |
-| `teste <nick> <dias>`   | Concede bot de teste        |
-| `verificar`             | Restaura bots ativos do DB  |
-| `bots`                  | Lista bots em execução      |
-| `pendentes`             | Lista negociações pendentes |
-| `reload` *(se ativado)* | Recarrega o DB do disco     |
-| `exit`                  | Encerra o gerente           |
+| Comando               | Função                      |
+| --------------------- | --------------------------- |
+| `teste <nick> <dias>` | Concede bot de teste        |
+| `verificar`           | Restaura bots ativos do DB  |
+| `bots`                | Lista bots em execução      |
+| `pendentes`           | Lista negociações pendentes |
+| `reload`              | Recarrega o DB do disco     |
+| `exit`                | Encerra o gerente           |
 
 ---
 
 ## 🗃️ Banco de Dados
 
-O gerente mantém registros em arquivo JSON, incluindo:
+O sistema mantém registros persistentes de:
 
-* Clientes ativos
-* Negociações em andamento
-* Saldos acumulados
-* Reembolsos
-* Histórico completo de clientes expirados
+* clientes ativos
+* negociações
+* saldos acumulados
+* reembolsos
+* histórico de clientes expirados
 
-Nenhuma informação é perdida em reinícios.
+Nenhuma informação é perdida em reinicializações.
 
 ---
 
 ## 📊 Painel Web (opcional)
 
-Painel HTML separado do bot, com:
+Painel separado do bot, utilizado apenas para visualização administrativa:
 
 * clientes ativos
+* tempo de expiração
 * negociações
 * histórico
-* tempo de expiração
 
-Atualização automática.
+---
+
+## 📎 Informações do Bot Operacional Plasma (Workers)
+
+Para detalhes técnicos, comandos internos, limitações e comportamento dos **Bots Operacionais Plasma (Workers)**, consulte o arquivo de ajuda:
+
+👉 **help_workers.md**
+
+Este arquivo contém:
+
+* descrição das funções dos workers
+* regras de uso
+* limites operacionais
+* boas práticas
 
 ---

@@ -5,10 +5,12 @@
 <title>Painel Plasma</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-900 text-white min-h-screen p-6">
   <h1 class="text-3xl font-bold mb-6">Painel Plasma</h1>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <!-- RESUMO -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
     <div class="bg-gray-800 p-4 rounded-2xl shadow">
       Clientes Ativos: <span id="ativos" class="font-bold">0</span>
     </div>
@@ -20,6 +22,22 @@
     </div>
   </div>
 
+  <!-- LISTA DE CLIENTES -->
+  <h2 class="text-2xl font-semibold mb-4">Clientes Ativos</h2>
+
+  <div class="overflow-x-auto mb-6">
+    <table class="min-w-full bg-gray-800 rounded-xl overflow-hidden">
+      <thead class="bg-gray-700">
+        <tr>
+          <th class="px-4 py-2 text-left">Cliente</th>
+          <th class="px-4 py-2 text-left">Expira em</th>
+          <th class="px-4 py-2 text-left">Tempo restante</th>
+        </tr>
+      </thead>
+      <tbody id="listaClientes"></tbody>
+    </table>
+  </div>
+
   <p class="text-sm text-gray-400 mb-4">
     Atualiza automaticamente a cada 3 segundos.
   </p>
@@ -27,18 +45,32 @@
   <script>
     async function carregar() {
       try {
-        const res = await fetch('/status');
-        const data = await res.json();
-        document.getElementById('ativos').innerText = data.ativos || 0;
-        document.getElementById('negociando').innerText = data.negociando || 0;
-        document.getElementById('historico').innerText = data.historico || 0;
+        const res = await fetch('/status')
+        const data = await res.json()
+
+        document.getElementById('ativos').innerText = data.ativos || 0
+        document.getElementById('negociando').innerText = data.negociando || 0
+        document.getElementById('historico').innerText = data.historico || 0
+
+        const tbody = document.getElementById('listaClientes')
+        tbody.innerHTML = ''
+
+        ;(data.clientes || []).forEach(c => {
+          const tr = document.createElement('tr')
+          tr.innerHTML = `
+            <td class="px-4 py-2">${c.nome}</td>
+            <td class="px-4 py-2">${c.expira}</td>
+            <td class="px-4 py-2">${c.restante}</td>
+          `
+          tbody.appendChild(tr)
+        })
       } catch (e) {
-        console.log("Erro ao buscar status:", e);
+        console.log('Erro ao buscar status:', e)
       }
     }
 
-    setInterval(carregar, 3000);
-    carregar();
+    setInterval(carregar, 3000)
+    carregar()
   </script>
 </body>
 </html>

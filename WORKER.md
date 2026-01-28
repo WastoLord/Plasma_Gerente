@@ -63,10 +63,10 @@ Os comandos podem ser enviados por **chat normal ou /tell**.
 | `descer`         | Ativa elevador (descer)      |
 | `guarda`         | Modo guarda (defesa)         |
 | `ataque`         | Ataca inimigos próximos      |
-| `usar <tempo>`   | Autoclick por tempo definido |
+| `usar <tempo>`   | Autoclick botão direito      |
 | `itens`          | Dropa itens para o jogador   |
 | `pix`            | Envia pix configurado        |
-| `loja`           | Abre a loja configurada      |
+| `loja <nome>`    | Vai pra loja definida        |
 | `help` / `ajuda` | Lista comandos               |
 
 ---

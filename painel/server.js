@@ -11,17 +11,37 @@ app.use(express.static(__dirname))
 
 app.get('/status', (req, res) => {
   if (!fs.existsSync(DB)) {
-    return res.json({ ativos: 0, negociando: 0, historico: 0 })
+    return res.json({
+      ativos: 0,
+      negociando: 0,
+      historico: 0,
+      clientes: []
+    })
   }
 
   const db = JSON.parse(fs.readFileSync(DB))
+  const agora = Date.now()
+
+  const clientes = Object.entries(db.clientes || {}).map(([nome, dados]) => {
+    const restanteMs = dados.dataFim - agora
+    const horas = Math.floor(restanteMs / (1000 * 60 * 60))
+    const minutos = Math.floor((restanteMs % (1000 * 60 * 60)) / (1000 * 60))
+
+    return {
+      nome,
+      expira: new Date(dados.dataFim).toLocaleString('pt-BR'),
+      restante: `${horas}h ${minutos}min`
+    }
+  })
 
   res.json({
-    ativos: Object.keys(db.clientes || {}).length,
+    ativos: clientes.length,
     negociando: Object.keys(db.negociacoes || {}).length,
-    historico: Object.keys(db.historico || {}).length
+    historico: Object.keys(db.historico || {}).length,
+    clientes
   })
 })
+
 
 app.listen(PORT, () => {
   console.log(`📊 Painel Plasma rodando em http://localhost:${PORT}`)

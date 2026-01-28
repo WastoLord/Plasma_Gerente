@@ -229,6 +229,26 @@ function iniciarGerente() {
         if (!isPlayerChat) processarPagamento(msg)
     })
 
+    // ⏳ EXPIRAÇÃO AUTOMÁTICA DE SALDOS (2 DIAS)
+    setInterval(() => {
+        if (!db.saldos) return
+    
+        const DOIS_DIAS = 2 * 24 * 60 * 60 * 1000
+        const agora = Date.now()
+        let alterou = false
+    
+        for (const user in db.saldos) {
+            if (agora - db.saldos[user].criadoEm > DOIS_DIAS) {
+                console.log(`🗑️ Saldo expirado de ${user}`)
+                delete db.saldos[user]
+                alterou = true
+            }
+        }
+    
+        if (alterou) salvarDB()
+    }, 60 * 60 * 1000) // roda a cada 1 hora
+
+    
     // bot.on('chat'...) REMOVIDO - respostas apenas via /tell
 }
 
@@ -293,6 +313,27 @@ function tratarComandosCliente(username, messageRaw) {
         return
     }
 
+    if (message === 'devolver') {
+        const saldo = db.saldos[username]
+    
+        if (!saldo || saldo.valor <= 0) {
+            enviarSequencia([
+                `/tell ${username} ❌ Você não possui saldo acumulado.`
+            ])
+            return
+        }
+    
+        enviarSequencia([
+            `/pix ${username} ${saldo.valor}`,
+            `/tell ${username} 💸 Valor devolvido: $${saldo.valor}`
+        ])
+    
+        delete db.saldos[username]
+        salvarDB()
+        return
+    }
+
+    
     if (!db.interacoes) db.interacoes = {}
     
     if (!db.interacoes[username]) {

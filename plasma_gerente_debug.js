@@ -2,6 +2,11 @@ const mineflayer = require('mineflayer')
 const fs = require('fs')
 const readline = require('readline') 
 const { exec } = require('child_process')
+const spamControl = {}
+const BLOQUEIO_MS = 5 * 60 * 1000
+const JANELA_MS = 60 * 1000
+const LIMITE_MSG = 10
+
 
 // --- VALIDAÇÃO DE SEGURANÇA ---
 const SENHA_BOT = process.env.BOT_PASSWORD;
@@ -238,6 +243,32 @@ function iniciarLoopLobby() {
 }
 
 function tratarComandosCliente(username, messageRaw) {
+    const agora = Date.now()
+
+    if (!spamControl[username]) {
+        spamControl[username] = { msgs: [], bloqueadoAte: 0 }
+    }
+    
+    const sc = spamControl[username]
+    
+    // ainda bloqueado
+    if (agora < sc.bloqueadoAte) {
+        return
+    }
+    
+    // limpa msgs antigas
+    sc.msgs = sc.msgs.filter(t => agora - t < JANELA_MS)
+    sc.msgs.push(agora)
+    
+    if (sc.msgs.length >= LIMITE_MSG) {
+        sc.bloqueadoAte = agora + BLOQUEIO_MS
+        enviarSequencia([
+            `/tell ${username} ⚠️ Você enviou muitas mensagens.`,
+            `/tell ${username} Aguarde 5 minutos para continuar.`
+        ])
+        return
+    }
+
     const message = messageRaw.replace(/\./g, '').trim().toLowerCase()
     // ⏳ CONSULTA DE TEMPO
     if (message === 'tempo' || message === 'status' || message === 'meu bot') {

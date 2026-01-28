@@ -97,7 +97,7 @@ Painel separado do bot, utilizado apenas para visualização administrativa:
 
 Para detalhes técnicos, comandos internos, limitações e comportamento dos **Bots Operacionais Plasma (Workers)**, consulte o arquivo de ajuda:
 
-[WORKER.md](https://github.com/WastoLord/Plasma_Gerente/main/WORKER.md)
+[WORKER.md](https://github.com/WastoLord/Plasma_Gerente/blob/main/WORKER.md)
 
 Este arquivo contém:
 

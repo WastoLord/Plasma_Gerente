@@ -33,7 +33,6 @@ O valor é acumulado automaticamente até atingir o preço do bot.
 * **Anti-spam**:
   Mais de 10 mensagens em 1 minuto → bloqueio por 5 minutos.
 * **Pagamentos parciais** acumulados com segurança.
-* **Correção de centavos** (nunca converte 0.11 em 11).
 * **Expiração de saldo** após 2 dias.
 * **Negociação cancelada automaticamente** por inatividade.
 

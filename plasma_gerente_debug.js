@@ -389,20 +389,50 @@ function tratarComandosCliente(username, messageRaw) {
         salvarDB()
     }
 
-    else if (message === 'confirmar') {
+else if (message === 'confirmar') {
         const negociacao = db.negociacoes[username]
+        
         if (negociacao && negociacao.estado === 'aguardando_confirmacao') {
-    
-            negociacao.estado = 'aguardando_pagamento'
-            salvarDB()
-    
+            negociacao.estado = 'aguardando_pagamento';
+            salvarDB();
+
+            // --- LÓGICA NOVA: VERIFICA SALDO JÁ EXISTENTE ---
+            const saldoAtual = db.saldos[username] ? db.saldos[username].valor : 0;
+            const precoCentavos = Math.round(CONFIG.precoSemana * 100);
+
+            if (saldoAtual >= precoCentavos) {
+                // Tem dinheiro suficiente! Debita e entrega AGORA.
+                db.saldos[username].valor -= precoCentavos;
+                const troco = db.saldos[username].valor;
+
+                if (troco > 0) {
+                    enviarSequencia([
+                        `/tell ${username} 💎 Usando seu saldo acumulado.`,
+                        `/tell ${username} 👛 Restante em conta: $${formatarDinheiro(troco)}`
+                    ]);
+                } else {
+                    delete db.saldos[username];
+                }
+                
+                salvarDB();
+                aceitarContrato(username); // Entrega o bot
+                return; // Encerra aqui, não pede PIX
+            }
+            // -------------------------------------------------
+
+            // Se não tiver saldo suficiente, segue o fluxo normal pedindo PIX
+            const falta = precoCentavos - saldoAtual;
+            
             enviarSequencia([
-                `/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)}.`,
-                `/tell ${username} Use: /pix ${bot.username} ${CONFIG.precoSemana}`
-            ])
-    
-            // ⏰ lembrete automático após 5 minutos
-            setTimeout(() => {
+                `/tell ${username} ✅ Pedido confirmado!`,
+                (saldoAtual > 0) 
+                    ? `/tell ${username} 💰 Você já tem $${formatarDinheiro(saldoAtual)}. Falta: $${formatarDinheiro(falta)}`
+                    : `/tell ${username} Aguardando PIX de $${formatarDinheiro(precoCentavos)}.`,
+                `/tell ${username} Use: /pix ${bot.username} ${(falta/100).toFixed(2).replace('.', ',')}`
+            ]);
+
+            // ... (Mantenha os timeouts de lembrete e cancelamento originais aqui) ...
+             setTimeout(() => {
                 const n = db.negociacoes[username]
                 if (n && n.estado === 'aguardando_pagamento') {
                     enviarSequencia([
@@ -412,15 +442,13 @@ function tratarComandosCliente(username, messageRaw) {
                 }
             }, 5 * 60 * 1000)
             
-            // ❌ cancelamento automático após 15 minutos
             setTimeout(() => {
                 const n = db.negociacoes[username]
                 if (n && n.estado === 'aguardando_pagamento') {
                     delete db.negociacoes[username]
                     salvarDB()
                     enviarSequencia([
-                        `/tell ${username} ❌ Sua negociação foi cancelada por inatividade.`,
-                        `/tell ${username} Para tentar novamente, digite: negociar`
+                        `/tell ${username} ❌ Negociação cancelada por inatividade.`
                     ])
                 }
             }, 15 * 60 * 1000)

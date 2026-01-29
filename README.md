@@ -1,5 +1,3 @@
----
-
 ## 🤖 Gerente da Loja Plasma
 
 O **Gerente Plasma** é um bot automatizado responsável pela venda, gestão e controle de bots operacionais (Workers) no servidor, com sistema de negociação segura, pagamentos parciais, anti-spam e histórico completo de clientes.
@@ -14,7 +12,7 @@ Os **Bots Operacionais Plasma (Workers)** são os bots que realizam a função c
 
 O **Gerente Plasma** é responsável por:
 
-* iniciar os workers
+* iniciar os workers (via sessões tmux)
 * encerrar automaticamente ao expirar
 * renovar quando contratado novamente
 * manter isolamento entre clientes
@@ -32,6 +30,7 @@ Toda comunicação, pagamentos e status passam pelo **Gerente**.
 | `qualquer mensagem`    | Inicia o atendimento                     |
 | `negociar`             | Inicia a negociação do bot               |
 | `confirmar`            | Confirma o interesse e aguarda pagamento |
+| `saldo`                | Consulta o saldo acumulado atual         |
 | `tempo`                | Mostra quanto tempo resta do bot         |
 | `status`               | Mesmo que `tempo`                        |
 | `meu bot`              | Mesmo que `tempo`                        |
@@ -46,8 +45,8 @@ O valor é acumulado automaticamente até atingir o valor do bot.
 ## 🛡️ Proteções Automáticas
 
 * Anti-spam (10 mensagens/min → bloqueio 5 min)
-* Pagamentos parciais acumulados
-* Cancelamento automático de negociação
+* Pagamentos parciais acumulados (Troco fica salvo)
+* Cancelamento automático de negociação por inatividade
 * Expiração de saldo acumulado (2 dias)
 * Comunicação restrita a /tell
 
@@ -68,42 +67,17 @@ Executados diretamente no terminal onde o gerente está rodando.
 
 ---
 
-## 🗃️ Banco de Dados
+## 🛠️ Requisitos e Instalação
 
-O sistema mantém registros persistentes de:
+Para que o Gerente consiga criar os Workers, o ambiente (VPS) precisa de:
 
-* clientes ativos
-* negociações
-* saldos acumulados
-* reembolsos
-* histórico de clientes expirados
+1.  **Node.js** (v18 ou superior)
+2.  **TMUX** instalado (Essencial para rodar bots em background)
+    * Ubuntu/Debian: `sudo apt install tmux`
 
-Nenhuma informação é perdida em reinicializações.
+### Inicialização Segura
+O bot exige a senha definida via variável de ambiente.
 
----
-
-## 📊 Painel Web (opcional)
-
-Painel separado do bot, utilizado apenas para visualização administrativa:
-
-* clientes ativos
-* tempo de expiração
-* negociações
-* histórico
-
----
-
-## 📎 Informações do Bot Operacional Plasma (Workers)
-
-Para detalhes técnicos, comandos internos, limitações e comportamento dos **Bots Operacionais Plasma (Workers)**, consulte o arquivo de ajuda:
-
-[WORKER.md](https://github.com/WastoLord/Plasma_Gerente/blob/main/WORKER.md)
-
-Este arquivo contém:
-
-* descrição das funções dos workers
-* regras de uso
-* limites operacionais
-* boas práticas
-
----
+```bash
+export BOT_PASSWORD='SuaSenhaDoLogin'
+node plasma_gerente.js

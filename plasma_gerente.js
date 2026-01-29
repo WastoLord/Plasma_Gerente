@@ -101,6 +101,7 @@ let db = { clientes: {}, negociacoes: {}, reembolsos: [] }
 let bot = null
 let loopLobby = null 
 let loopExpiracao = null
+let sistemaPronto = false
 
 if (fs.existsSync(DB_FILE)) {
     try { 
@@ -114,6 +115,7 @@ if (!db.saldos) db.saldos = {}
 let saveTimeout = null;
 
 function salvarDB() {
+    if (!sistemaPronto) return   // 👈 ADICIONE ISSO
     if (saveTimeout) return; // Já tem um salvamento agendado
     
     saveTimeout = setTimeout(() => {
@@ -182,6 +184,11 @@ function iniciarGerente() {
         loopExpiracao = setInterval(verificarExpiracoes, 10 * 60 * 1000)
         iniciarLoopLobby()
         setTimeout(restaurarSessoesAntigas, 10000)
+
+        setTimeout(() => {
+            sistemaPronto = true
+            console.log('🟢 Sistema liberado (DB e PIX ativos)')
+        }, 15000)
     })
 
     bot.on('respawn', () => {
@@ -203,16 +210,26 @@ function iniciarGerente() {
     
     bot.on('windowOpen', (window) => {
         if (window.type === 'minecraft:inventory') return
+    
         console.log(`📂 Janela aberta: "${window.title}"`)
-        const alvo = window.slots.find(item => item && item.name.includes(CONFIG.idItemAlvo))
-        if (alvo) {
-            console.log(`🎯 Servidor encontrado. Entrando...`)
-            bot.clickWindow(alvo.slot, 0, 0)
-            setTimeout(() => {
-                if (bot.currentWindow) bot.closeWindow(bot.currentWindow)
-                console.log("🚀 Entrada no servidor concluída.")
-            }, 1000)
-        }
+    
+        setTimeout(() => {
+            if (!bot || !bot.currentWindow) return
+    
+            const alvo = window.slots.find(
+                item => item && item.name.includes(CONFIG.idItemAlvo)
+            )
+    
+            if (alvo) {
+                console.log(`🎯 Servidor encontrado. Entrando...`)
+                bot.clickWindow(alvo.slot, 0, 0)
+    
+                setTimeout(() => {
+                    if (bot.currentWindow) bot.closeWindow(bot.currentWindow)
+                    console.log("🚀 Entrada no servidor concluída.")
+                }, 1000)
+            }
+        }, 500) // 👈 delay crítico
     })
 
     bot.on('message', (jsonMsg) => {

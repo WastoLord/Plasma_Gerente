@@ -448,7 +448,7 @@ else if (message === 'confirmar') {
                 (saldoAtual > 0) 
                     ? `/tell ${username} 💰 Você já tem $${formatarDinheiro(saldoAtual)}. Falta: $${formatarDinheiro(falta)}`
                     : `/tell ${username} Aguardando PIX de $${formatarDinheiro(precoCentavos)}.`,
-                `/tell ${username} Use: /pix ${bot.username} ${(falta/100).toFixed(2)}`
+                `/tell ${username} Use: /pix ${bot.username} ${(falta/100)}`
             ]);
 
             // ... (Mantenha os timeouts de lembrete e cancelamento originais aqui) ...

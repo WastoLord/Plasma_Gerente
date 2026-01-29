@@ -482,6 +482,7 @@ else if (message === 'confirmar') {
 const REGEX_PAGAMENTO = /\[PIX\] Você recebeu ([\d.,]+) de (\w+)/i
 
 function processarPagamento(msg) {
+    if (!sistemaPronto) return
     const match = msg.match(REGEX_PAGAMENTO)
     if (!match) return
 

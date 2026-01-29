@@ -399,9 +399,9 @@ function tratarComandosCliente(username, messageRaw) {
             const restante = db.clientes[username].dataFim - Date.now()
             const dias = (restante / (1000 * 60 * 60 * 24)).toFixed(1)
             msgs.push(`/tell ${username} Você já tem um bot ativo! Restam ${dias} dias.`)
-            msgs.push(`/tell ${username} Para RENOVAR (+7 dias), digite "confirmar". Preço: $${formatarDinheiro(CONFIG.precoSemana)}.`)
+            msgs.push(`/tell ${username} Para RENOVAR (+7 dias), digite "confirmar". Preço: $${formatarDinheiro(CONFIG.precoSemana*100)}.`)
         } else {
-            msgs.push(`/tell ${username} Olá! O aluguel custa $${formatarDinheiro(CONFIG.precoSemana)} por semana.`)
+            msgs.push(`/tell ${username} Olá! O aluguel custa $${formatarDinheiro(CONFIG.precoSemana*100)} por semana.`)
             msgs.push(`/tell ${username} Para confirmar a compra, digite: confirmar`)
         }
         enviarSequencia(msgs)

@@ -366,7 +366,7 @@ function tratarComandosCliente(username, messageRaw) {
         }
     
     // Calcula o valor real para o comando
-    const valorReal = (saldo.valor / 100).toFixed(2).replace('.', ',');
+    const valorReal = (saldo.valor / 100);
 
     enviarSequencia([
         `/pix ${username} ${valorReal}`, 

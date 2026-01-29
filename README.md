@@ -1,3 +1,4 @@
+```markdown
 ## 🤖 Gerente da Loja Plasma
 
 O **Gerente Plasma** é um bot automatizado responsável pela venda, gestão e controle de bots operacionais (Workers) no servidor, com sistema de negociação segura, pagamentos parciais, anti-spam e histórico completo de clientes.
@@ -81,3 +82,38 @@ O bot exige a senha definida via variável de ambiente.
 ```bash
 export BOT_PASSWORD='SuaSenhaDoLogin'
 node plasma_gerente.js
+
+```
+
+---
+
+## 🕵️ Monitoramento de Workers (Admin)
+
+Cada bot de cliente roda em uma sessão `tmux` isolada.
+
+* **Listar sessões ativas:** `tmux ls`
+* **Ver console de um cliente:** `tmux attach -t plasma_nick`
+* **Sair do console (Detach):** `CTRL+B` depois `D`
+
+---
+
+## 🗃️ Banco de Dados
+
+O sistema mantém registros persistentes em `plasma_db.json` de:
+
+* clientes ativos e datas de vencimento
+* negociações em andamento
+* saldos acumulados (em centavos)
+* reembolsos e histórico
+
+---
+
+## 📎 Informações do Bot Operacional Plasma (Workers)
+
+Para detalhes técnicos, comandos internos e comportamento dos **Bots Operacionais**, consulte:
+
+[WORKER.md](WORKER.md)
+
+```
+
+```

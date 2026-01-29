@@ -348,10 +348,13 @@ function tratarComandosCliente(username, messageRaw) {
             return
         }
     
-        enviarSequencia([
-            `/pix ${username} ${saldo.valor}`,
-            `/tell ${username} 💸 Valor devolvido: $${saldo.valor}`
-        ])
+    // Calcula o valor real para o comando
+    const valorReal = (saldo.valor / 100).toFixed(2).replace('.', ',');
+
+    enviarSequencia([
+        `/pix ${username} ${valorReal}`, 
+        `/tell ${username} 💸 Valor devolvido: $${formatarDinheiro(saldo.valor)}`
+    ])
     
         delete db.saldos[username]
         salvarDB()
@@ -715,7 +718,8 @@ function verificarExpiracoes() {
 }
 
 function formatarDinheiro(valor) {
-    return valor.toLocaleString('pt-BR')
+// Divide por 100 para voltar de "centavos" para o valor real
+return (valor / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 iniciarGerente()

@@ -2,6 +2,11 @@ const mineflayer = require('mineflayer')
 const fs = require('fs')
 const readline = require('readline') 
 const { exec } = require('child_process')
+const spamControl = {}
+const BLOQUEIO_MS = 5 * 60 * 1000
+const JANELA_MS = 60 * 1000
+const LIMITE_MSG = 10
+
 
 // --- VALIDAÇÃO DE SEGURANÇA ---
 const SENHA_BOT = process.env.BOT_PASSWORD;
@@ -103,11 +108,22 @@ if (fs.existsSync(DB_FILE)) {
         db = { ...db, ...loaded } 
     } catch(e) { console.log("DB Novo criado.") }
 }
+// garante compatibilidade com DB antigo
+if (!db.saldos) db.saldos = {}
+
+let saveTimeout = null;
 
 function salvarDB() {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2))
+    if (saveTimeout) return; // Já tem um salvamento agendado
+    
+    saveTimeout = setTimeout(() => {
+        // Usa writeFile ASSÍNCRONO para não travar o bot
+        fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), (err) => {
+            if (err) console.error("Erro ao salvar DB:", err);
+        });
+        saveTimeout = null;
+    }, 5000); // Espera 5 segundos para consolidar as mudanças
 }
-
 function recarregarDB() {
     if (fs.existsSync(DB_FILE)) {
         try {
@@ -222,6 +238,26 @@ function iniciarGerente() {
         if (!isPlayerChat) processarPagamento(msg)
     })
 
+    // ⏳ EXPIRAÇÃO AUTOMÁTICA DE SALDOS (2 DIAS)
+    setInterval(() => {
+        if (!db.saldos) return
+    
+        const DOIS_DIAS = 2 * 24 * 60 * 60 * 1000
+        const agora = Date.now()
+        let alterou = false
+    
+        for (const user in db.saldos) {
+            if (agora - db.saldos[user].criadoEm > DOIS_DIAS) {
+                console.log(`🗑️ Saldo expirado de ${user}`)
+                delete db.saldos[user]
+                alterou = true
+            }
+        }
+    
+        if (alterou) salvarDB()
+    }, 60 * 60 * 1000) // roda a cada 1 hora
+
+    
     // bot.on('chat'...) REMOVIDO - respostas apenas via /tell
 }
 
@@ -238,7 +274,49 @@ function iniciarLoopLobby() {
 }
 
 function tratarComandosCliente(username, messageRaw) {
+    const agora = Date.now()
+
+    if (!spamControl[username]) {
+        spamControl[username] = { msgs: [], bloqueadoAte: 0 }
+    }
+    
+    const sc = spamControl[username]
+    
+    // ainda bloqueado
+    if (agora < sc.bloqueadoAte) {
+        return
+    }
+    
+    // limpa msgs antigas
+    sc.msgs = sc.msgs.filter(t => agora - t < JANELA_MS)
+    sc.msgs.push(agora)
+    
+    if (sc.msgs.length >= LIMITE_MSG) {
+        sc.bloqueadoAte = agora + BLOQUEIO_MS
+        enviarSequencia([
+            `/tell ${username} ⚠️ Você enviou muitas mensagens.`,
+            `/tell ${username} Aguarde 5 minutos para continuar.`
+        ])
+        return
+    }
+
     const message = messageRaw.replace(/\./g, '').trim().toLowerCase()
+    
+    // 💰 CONSULTA DE SALDO ACUMULADO
+    if (message === 'saldo' || message === 'meu saldo' || message === 'carteira') {
+        const saldo = db.saldos[username]
+        if (!saldo || saldo.valor <= 0) {
+            enviarSequencia([`/tell ${username} ❌ Você não possui saldo acumulado.`])
+        } else {
+            enviarSequencia([
+                `/tell ${username} 💰 Seu saldo acumulado: $${formatarDinheiro(saldo.valor)}`,
+                `/tell ${username} Para usar na contratação, digite: negociar`,
+                `/tell ${username} Para receber de volta, digite: devolver`
+            ])
+        }
+        return
+    }
+
     // ⏳ CONSULTA DE TEMPO
     if (message === 'tempo' || message === 'status' || message === 'meu bot') {
         const dados = db.clientes[username]
@@ -260,6 +338,27 @@ function tratarComandosCliente(username, messageRaw) {
         return
     }
 
+    if (message === 'devolver') {
+        const saldo = db.saldos[username]
+    
+        if (!saldo || saldo.valor <= 0) {
+            enviarSequencia([
+                `/tell ${username} ❌ Você não possui saldo acumulado.`
+            ])
+            return
+        }
+    
+        enviarSequencia([
+            `/pix ${username} ${saldo.valor}`,
+            `/tell ${username} 💸 Valor devolvido: $${saldo.valor}`
+        ])
+    
+        delete db.saldos[username]
+        salvarDB()
+        return
+    }
+
+    
     if (!db.interacoes) db.interacoes = {}
     
     if (!db.interacoes[username]) {
@@ -290,20 +389,50 @@ function tratarComandosCliente(username, messageRaw) {
         salvarDB()
     }
 
-    else if (message === 'confirmar') {
+else if (message === 'confirmar') {
         const negociacao = db.negociacoes[username]
+        
         if (negociacao && negociacao.estado === 'aguardando_confirmacao') {
-    
-            negociacao.estado = 'aguardando_pagamento'
-            salvarDB()
-    
+            negociacao.estado = 'aguardando_pagamento';
+            salvarDB();
+
+            // --- LÓGICA NOVA: VERIFICA SALDO JÁ EXISTENTE ---
+            const saldoAtual = db.saldos[username] ? db.saldos[username].valor : 0;
+            const precoCentavos = Math.round(CONFIG.precoSemana * 100);
+
+            if (saldoAtual >= precoCentavos) {
+                // Tem dinheiro suficiente! Debita e entrega AGORA.
+                db.saldos[username].valor -= precoCentavos;
+                const troco = db.saldos[username].valor;
+
+                if (troco > 0) {
+                    enviarSequencia([
+                        `/tell ${username} 💎 Usando seu saldo acumulado.`,
+                        `/tell ${username} 👛 Restante em conta: $${formatarDinheiro(troco)}`
+                    ]);
+                } else {
+                    delete db.saldos[username];
+                }
+                
+                salvarDB();
+                aceitarContrato(username); // Entrega o bot
+                return; // Encerra aqui, não pede PIX
+            }
+            // -------------------------------------------------
+
+            // Se não tiver saldo suficiente, segue o fluxo normal pedindo PIX
+            const falta = precoCentavos - saldoAtual;
+            
             enviarSequencia([
-                `/tell ${username} Aguardando PIX de $${formatarDinheiro(CONFIG.precoSemana)}.`,
-                `/tell ${username} Use: /pix ${bot.username} ${CONFIG.precoSemana}`
-            ])
-    
-            // ⏰ lembrete automático após 5 minutos
-            setTimeout(() => {
+                `/tell ${username} ✅ Pedido confirmado!`,
+                (saldoAtual > 0) 
+                    ? `/tell ${username} 💰 Você já tem $${formatarDinheiro(saldoAtual)}. Falta: $${formatarDinheiro(falta)}`
+                    : `/tell ${username} Aguardando PIX de $${formatarDinheiro(precoCentavos)}.`,
+                `/tell ${username} Use: /pix ${bot.username} ${(falta/100).toFixed(2).replace('.', ',')}`
+            ]);
+
+            // ... (Mantenha os timeouts de lembrete e cancelamento originais aqui) ...
+             setTimeout(() => {
                 const n = db.negociacoes[username]
                 if (n && n.estado === 'aguardando_pagamento') {
                     enviarSequencia([
@@ -313,15 +442,13 @@ function tratarComandosCliente(username, messageRaw) {
                 }
             }, 5 * 60 * 1000)
             
-            // ❌ cancelamento automático após 15 minutos
             setTimeout(() => {
                 const n = db.negociacoes[username]
                 if (n && n.estado === 'aguardando_pagamento') {
                     delete db.negociacoes[username]
                     salvarDB()
                     enviarSequencia([
-                        `/tell ${username} ❌ Sua negociação foi cancelada por inatividade.`,
-                        `/tell ${username} Para tentar novamente, digite: negociar`
+                        `/tell ${username} ❌ Negociação cancelada por inatividade.`
                     ])
                 }
             }, 15 * 60 * 1000)
@@ -330,38 +457,87 @@ function tratarComandosCliente(username, messageRaw) {
             enviarSequencia([`/tell ${username} Digite negociar para iniciar.`])
         }
     }
-
-    
-    if (CONFIG.admins.includes(username) && messageRaw.startsWith('cmd ')) {
-        const comando = messageRaw.replace('cmd ', '')
-        exec(comando, (err, stdout, stderr) => { console.log(`Exec: ${stdout || stderr}`) })
-        bot.chat(`/tell ${username} Comando executado.`)
-    }
 }
 
 const REGEX_PAGAMENTO = /\[PIX\] Você recebeu ([\d.,]+) de (\w+)/i
 
 function processarPagamento(msg) {
     const match = msg.match(REGEX_PAGAMENTO)
-    if (match) {
-        const valorTexto = match[1].replace(/\./g, '').replace(',', '.') 
-        const valor = parseFloat(valorTexto)
-        const pagador = match[2]
-        console.log(`💰 Pagamento detectado: ${valor} de ${pagador}`)
-        
-        const negociacao = db.negociacoes[pagador]
-        
-        if (negociacao && negociacao.estado === 'aguardando_pagamento') {
-            if (Math.abs(valor - CONFIG.precoSemana) < 100) { 
-                aceitarContrato(pagador)
-            } else {
-                reembolsarSeguro(pagador, valor, "Valor incorreto")
-            }
-        } else {
-            reembolsarSeguro(pagador, valor, "Sem negociação aberta")
+    if (!match) return
+
+    // 1. Limpeza e Conversão para CENTAVOS (Inteiro)
+    // Remove pontos de milhar, troca vírgula por ponto
+    let valorString = match[1].replace(/\./g, '').replace(',', '.');
+    let valorFloat = parseFloat(valorString);
+
+    if (isNaN(valorFloat) || valorFloat <= 0) return;
+
+    // Converte R$ 10,50 para 1050 centavos (Evita erros de ponto flutuante)
+    const centavosRecebidos = Math.round(valorFloat * 100);
+    const pagador = match[2];
+
+    console.log(`💰 Pagamento: ${valorFloat} (${centavosRecebidos} cts) de ${pagador}`);
+
+    // 2. Inicializa Carteira
+    if (!db.saldos) db.saldos = {}
+    if (!db.saldos[pagador]) {
+        db.saldos[pagador] = {
+            valor: 0, // Agora armazenamos CENTAVOS aqui
+            criadoEm: Date.now(),
+            avisosEnviados: 0
         }
     }
+
+    // 3. Atualiza Saldo (Soma Inteira)
+    db.saldos[pagador].valor += centavosRecebidos;
+    db.saldos[pagador].criadoEm = Date.now();
+    
+    salvarDB();
+
+    // Preço da semana em CENTAVOS
+    const precoSemanaCentavos = Math.round(CONFIG.precoSemana * 100);
+    const saldoAtualCentavos = db.saldos[pagador].valor;
+
+    // 4. Lógica de Notificação
+    if (db.saldos[pagador].avisosEnviados < 2) {
+        db.saldos[pagador].avisosEnviados++;
+        salvarDB();
+        
+        if (saldoAtualCentavos < precoSemanaCentavos) {
+            enviarSequencia([
+                `/tell ${pagador} 💰 Recebi $${formatarDinheiro(centavosRecebidos)}!`,
+                `/tell ${pagador} 📦 Acumulado: $${formatarDinheiro(saldoAtualCentavos)}`,
+                `/tell ${pagador} 🎯 Meta: $${formatarDinheiro(precoSemanaCentavos)}`
+            ]);
+        }
+    }
+
+    // 5. Verificação de Compra e TROCO
+    const negociacao = db.negociacoes[pagador];
+    
+    if (negociacao && negociacao.estado === 'aguardando_pagamento' && saldoAtualCentavos >= precoSemanaCentavos) {
+        
+        // Subtrai o preço do bot (em centavos)
+        db.saldos[pagador].valor -= precoSemanaCentavos;
+        
+        const troco = db.saldos[pagador].valor;
+        
+        // Feedback se sobrou dinheiro
+        if (troco > 0) {
+            enviarSequencia([
+                `/tell ${pagador} ✅ Pagamento confirmado!`,
+                `/tell ${pagador} 👛 Seu troco de $${formatarDinheiro(troco)} ficou salvo para a próxima.`
+            ]);
+        } else {
+            // Se zerou, limpa do DB para economizar espaço
+            delete db.saldos[pagador];
+        }
+
+        salvarDB();
+        aceitarContrato(pagador);
+    }
 }
+
 
 function reembolsarSeguro(cliente, valor, motivo) {
     const idTransacao = Date.now()

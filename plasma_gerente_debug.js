@@ -482,7 +482,18 @@ function processarPagamento(msg) {
     // 🚀 Se estiver em negociação e atingir o valor
     if (negociacao && negociacao.estado === 'aguardando_pagamento' && total >= CONFIG.precoSemana) {
         // ✅ valor completo
-        delete db.saldos[pagador]
+        
+        // CORREÇÃO: Subtrai o preço do saldo
+        db.saldos[pagador].valor = Math.round((total - CONFIG.precoSemana) * 100) / 100;
+        
+        // Se sobrou 0 ou menos (por algum erro de arredondamento), aí sim deleta
+        if (db.saldos[pagador].valor <= 0) {
+            delete db.saldos[pagador];
+        } else {
+            // Opcional: Avisar que sobrou troco
+            bot.chat(`/tell ${pagador} 💰 Bot contratado! Seu troco/saldo restante: $${db.saldos[pagador].valor}`);
+        }
+
         salvarDB()
         aceitarContrato(pagador)
     }

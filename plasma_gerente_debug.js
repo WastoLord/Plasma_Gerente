@@ -111,10 +111,19 @@ if (fs.existsSync(DB_FILE)) {
 // garante compatibilidade com DB antigo
 if (!db.saldos) db.saldos = {}
 
-function salvarDB() {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2))
-}
+let saveTimeout = null;
 
+function salvarDB() {
+    if (saveTimeout) return; // Já tem um salvamento agendado
+    
+    saveTimeout = setTimeout(() => {
+        // Usa writeFile ASSÍNCRONO para não travar o bot
+        fs.writeFile(DB_FILE, JSON.stringify(db, null, 2), (err) => {
+            if (err) console.error("Erro ao salvar DB:", err);
+        });
+        saveTimeout = null;
+    }, 5000); // Espera 5 segundos para consolidar as mudanças
+}
 function recarregarDB() {
     if (fs.existsSync(DB_FILE)) {
         try {
@@ -435,67 +444,76 @@ function processarPagamento(msg) {
     const match = msg.match(REGEX_PAGAMENTO)
     if (!match) return
 
-    // 🔐 conversão segura (sem bug de centavos)
-    const valorRecebido = Math.round(parseFloat(match[1].replace(',', '.')) * 100) / 100
-    if (isNaN(valorRecebido) || valorRecebido <= 0) return
+    // 1. Limpeza e Conversão para CENTAVOS (Inteiro)
+    // Remove pontos de milhar, troca vírgula por ponto
+    let valorString = match[1].replace(/\./g, '').replace(',', '.');
+    let valorFloat = parseFloat(valorString);
 
-    const pagador = match[2]
-    console.log(`💰 Pagamento detectado: ${valorRecebido} de ${pagador}`)
+    if (isNaN(valorFloat) || valorFloat <= 0) return;
 
-    // 📦 saldo acumulado (Sempre acumula, independente de negociação)
+    // Converte R$ 10,50 para 1050 centavos (Evita erros de ponto flutuante)
+    const centavosRecebidos = Math.round(valorFloat * 100);
+    const pagador = match[2];
+
+    console.log(`💰 Pagamento: ${valorFloat} (${centavosRecebidos} cts) de ${pagador}`);
+
+    // 2. Inicializa Carteira
     if (!db.saldos) db.saldos = {}
     if (!db.saldos[pagador]) {
         db.saldos[pagador] = {
-            valor: 0,
+            valor: 0, // Agora armazenamos CENTAVOS aqui
             criadoEm: Date.now(),
             avisosEnviados: 0
         }
     }
 
-    db.saldos[pagador].valor =
-        Math.round((db.saldos[pagador].valor + valorRecebido) * 100) / 100
-    db.saldos[pagador].criadoEm = Date.now() // Renova a expiração a cada depósito
-
-    salvarDB()
-
-    const total = db.saldos[pagador].valor
-    const falta = Math.round((CONFIG.precoSemana - total) * 100) / 100
-
-    const negociacao = db.negociacoes[pagador]
+    // 3. Atualiza Saldo (Soma Inteira)
+    db.saldos[pagador].valor += centavosRecebidos;
+    db.saldos[pagador].criadoEm = Date.now();
     
-    // 📢 Controle de avisos para não repetir sempre
+    salvarDB();
+
+    // Preço da semana em CENTAVOS
+    const precoSemanaCentavos = Math.round(CONFIG.precoSemana * 100);
+    const saldoAtualCentavos = db.saldos[pagador].valor;
+
+    // 4. Lógica de Notificação
     if (db.saldos[pagador].avisosEnviados < 2) {
-        db.saldos[pagador].avisosEnviados++
-        salvarDB()
+        db.saldos[pagador].avisosEnviados++;
+        salvarDB();
         
-        if (total < CONFIG.precoSemana) {
+        if (saldoAtualCentavos < precoSemanaCentavos) {
             enviarSequencia([
-                `/tell ${pagador} 💰 Recebi seu PIX de $${valorRecebido}!`,
-                `/tell ${pagador} 📦 Total acumulado: $${formatarDinheiro(total)}`,
-                `/tell ${pagador} ℹ️ Para ver o saldo a qualquer momento, digite: saldo`
-            ])
+                `/tell ${pagador} 💰 Recebi $${formatarDinheiro(centavosRecebidos)}!`,
+                `/tell ${pagador} 📦 Acumulado: $${formatarDinheiro(saldoAtualCentavos)}`,
+                `/tell ${pagador} 🎯 Meta: $${formatarDinheiro(precoSemanaCentavos)}`
+            ]);
         }
-    } else {
-        console.log(`[Silencioso] Saldo de ${pagador} atualizado para ${total}`)
     }
 
-    // 🚀 Se estiver em negociação e atingir o valor
-    if (negociacao && negociacao.estado === 'aguardando_pagamento' && total >= CONFIG.precoSemana) {
-        // ✅ valor completo
+    // 5. Verificação de Compra e TROCO
+    const negociacao = db.negociacoes[pagador];
+    
+    if (negociacao && negociacao.estado === 'aguardando_pagamento' && saldoAtualCentavos >= precoSemanaCentavos) {
         
-        // CORREÇÃO: Subtrai o preço do saldo
-        db.saldos[pagador].valor = Math.round((total - CONFIG.precoSemana) * 100) / 100;
+        // Subtrai o preço do bot (em centavos)
+        db.saldos[pagador].valor -= precoSemanaCentavos;
         
-        // Se sobrou 0 ou menos (por algum erro de arredondamento), aí sim deleta
-        if (db.saldos[pagador].valor <= 0) {
-            delete db.saldos[pagador];
+        const troco = db.saldos[pagador].valor;
+        
+        // Feedback se sobrou dinheiro
+        if (troco > 0) {
+            enviarSequencia([
+                `/tell ${pagador} ✅ Pagamento confirmado!`,
+                `/tell ${pagador} 👛 Seu troco de $${formatarDinheiro(troco)} ficou salvo para a próxima.`
+            ]);
         } else {
-            // Opcional: Avisar que sobrou troco
-            bot.chat(`/tell ${pagador} 💰 Bot contratado! Seu troco/saldo restante: $${db.saldos[pagador].valor}`);
+            // Se zerou, limpa do DB para economizar espaço
+            delete db.saldos[pagador];
         }
 
-        salvarDB()
-        aceitarContrato(pagador)
+        salvarDB();
+        aceitarContrato(pagador);
     }
 }
 

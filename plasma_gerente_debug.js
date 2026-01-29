@@ -457,7 +457,7 @@ else if (message === 'confirmar') {
             enviarSequencia([`/tell ${username} Digite negociar para iniciar.`])
         }
     }
-
+}
 
 const REGEX_PAGAMENTO = /\[PIX\] Você recebeu ([\d.,]+) de (\w+)/i
 

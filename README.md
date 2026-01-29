@@ -1,4 +1,3 @@
-```markdown
 ## 🤖 Gerente da Loja Plasma
 
 O **Gerente Plasma** é um bot automatizado responsável pela venda, gestão e controle de bots operacionais (Workers) no servidor, com sistema de negociação segura, pagamentos parciais, anti-spam e histórico completo de clientes.

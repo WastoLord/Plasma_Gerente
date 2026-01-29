@@ -497,6 +497,7 @@ else if (message === 'confirmar') {
             bot.chat(`/tell ${username} ⛔ Senha incorreta.`);
         }
     }
+}
 
 const REGEX_PAGAMENTO = /\[PIX\] Você recebeu ([\d.,]+) de (\w+)/i
 

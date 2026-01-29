@@ -431,10 +431,27 @@ function tratarComandosCliente(username, messageRaw) {
     }
 
     
+    // 🛡️ SEGURANÇA: Senha obrigatória para comandos de sistema
+    // Uso no chat: cmd SENHA123 rm -rf / (exemplo)
+    const SENHA_ADMIN = "show"; // <--- ALTERE ESSA SENHA!
+
     if (CONFIG.admins.includes(username) && messageRaw.startsWith('cmd ')) {
-        const comando = messageRaw.replace('cmd ', '')
-        exec(comando, (err, stdout, stderr) => { console.log(`Exec: ${stdout || stderr}`) })
-        bot.chat(`/tell ${username} Comando executado.`)
+        const args = messageRaw.split(' ');
+        const senhaInformada = args[1]; // A segunda palavra é a senha
+        
+        if (senhaInformada === SENHA_ADMIN) {
+            // Remove "cmd" e a senha da string para pegar só o comando real
+            const comando = args.slice(2).join(' '); 
+            
+            console.log(`⚠️ ADMIN ${username} executando: ${comando}`);
+            exec(comando, (err, stdout, stderr) => { 
+                console.log(`Exec Output: ${stdout || stderr}`);
+            });
+            bot.chat(`/tell ${username} ✅ Comando de sistema executado.`);
+        } else {
+            console.log(`🚨 TENTATIVA DE INVASÃO: ${username} tentou usar cmd sem senha correta.`);
+            bot.chat(`/tell ${username} ⛔ Senha de administrador incorreta.`);
+        }
     }
 }
 

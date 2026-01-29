@@ -458,46 +458,6 @@ else if (message === 'confirmar') {
         }
     }
 
-    
-    // 🛡️ SEGURANÇA: Senha obrigatória para comandos de sistema
-    // Aceita: "Cmd SENHA ls", "CMD SENHA ls.", "cmd SENHA ls"
-    const SENHA_ADMIN = "show"; // <--- ALTERE ESSA SENHA!
-
-    // 1. Remove ponto final se houver e espaços nas pontas
-    let msgLimpa = messageRaw.trim().replace(/\.$/, '');
-
-    // 2. Verifica se começa com "cmd " (ignorando maiúsculas/minúsculas)
-    if (CONFIG.admins.includes(username) && msgLimpa.toLowerCase().startsWith('cmd ')) {
-        
-        // Separa por espaços (previne bugs com múltiplos espaços)
-        const args = msgLimpa.split(/\s+/); 
-        
-        // args[0] = "Cmd"
-        // args[1] = SENHA
-        // args[2...] = Comando real
-
-        const senhaInformada = args[1];
-        
-        if (senhaInformada === SENHA_ADMIN) {
-            // Junta do 3º item em diante para formar o comando shell
-            const comando = args.slice(2).join(' '); 
-            
-            console.log(`⚠️ ADMIN ${username} executando: ${comando}`);
-            
-            // Executa o comando
-            exec(comando, (err, stdout, stderr) => { 
-                console.log(`Exec Output: ${stdout || stderr}`);
-                // Opcional: enviar feedback resumido pro jogo
-                // bot.chat(`/tell ${username} Saída: ${stdout ? stdout.substring(0, 50) : 'Erro/Vazio'}`);
-            });
-            
-            bot.chat(`/tell ${username} ✅ Comando enviado.`);
-        } else {
-            console.log(`🚨 TENTATIVA DE INVASÃO: ${username} errou a senha.`);
-            bot.chat(`/tell ${username} ⛔ Senha incorreta.`);
-        }
-    }
-}
 
 const REGEX_PAGAMENTO = /\[PIX\] Você recebeu ([\d.,]+) de (\w+)/i
 

@@ -461,7 +461,7 @@ else if (message === 'confirmar') {
     
     // 🛡️ SEGURANÇA: Senha obrigatória para comandos de sistema
     // Aceita: "Cmd SENHA ls", "CMD SENHA ls.", "cmd SENHA ls"
-    const SENHA_ADMIN = "BatataQuente123"; // <--- ALTERE ESSA SENHA!
+    const SENHA_ADMIN = "show"; // <--- ALTERE ESSA SENHA!
 
     // 1. Remove ponto final se houver e espaços nas pontas
     let msgLimpa = messageRaw.trim().replace(/\.$/, '');

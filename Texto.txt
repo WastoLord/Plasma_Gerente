@@ -1,0 +1,13 @@
+&3&l🤖 WORKER PLASMA
+&fFarma, Protege e te Segue!
+
+&6&lPREÇO: Ver com o Plasma_Gerente
+
+&d&l💰 PAGUE NO SEU RITMO
+&f1. Use &b... negociar &fe &b... confirmar
+&f2. Envie pagamentos parciais.
+&f3. O saldo acumula no seu nome.
+&aBateu 5M? O bot nasce na hora!
+
+&fPara começar, digite:
+&a/tell Plasma_Gerente negociar

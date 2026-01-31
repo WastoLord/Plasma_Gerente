@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 if (args.length < 2) { console.log("❌ [Loader] Erro: Argumentos insuficientes."); process.exit(1); }
 const DONO = args[0];
 const BOT_NICK = args[1];
-const LOJA_ID = args[2] || 'plasma'; 
+const LOJA_ID = args[2] || 'bots'; 
 
 // --- SEGURANÇA: SENHA VIA ENV ---
 const SENHA_PADRAO = process.env.BOT_PASSWORD;

@@ -142,7 +142,7 @@ function recarregarDB() {
 let filaChat = []
 let processandoFila = false
 
-function enviarSequencia(mensagens, delay = 3500) { 
+function enviarSequencia(mensagens, delay = 600) { 
     mensagens.forEach((msg) => {
         filaChat.push({ msg, delay })
     })

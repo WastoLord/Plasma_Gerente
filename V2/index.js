@@ -3,7 +3,7 @@ const path = require('path')
 const mineflayer = require('mineflayer')
 
 const OPTIONS = {
-  username: 'i_am_u9g',
+  username: 'teste',
   host: 'localhost'
 }
 

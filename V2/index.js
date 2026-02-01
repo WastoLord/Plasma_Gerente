@@ -4,7 +4,8 @@ const mineflayer = require('mineflayer')
 
 const OPTIONS = {
   username: 'teste',
-  host: 'localhost'
+  host: 'localhost',
+  checkTimeoutInterval: 120 * 1000
 }
 
 function injectModules (bot) {

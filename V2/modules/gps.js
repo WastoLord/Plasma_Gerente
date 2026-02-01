@@ -1,38 +1,32 @@
-// This is an example that uses mineflayer-pathfinder to showcase how simple it is to walk to goals
-
-const mineflayer = require('mineflayer')
 const { pathfinder, Movements, goals: { GoalNear } } = require('mineflayer-pathfinder')
 
-if (process.argv.length < 4 || process.argv.length > 6) {
-  console.log('Usage : node gps.js <host> <port> [<name>] [<password>]')
-  process.exit(1)
-}
+const RANGE_GOAL = 1 // Raio de distância do jogador
 
-const bot = mineflayer.createBot({
-  host: process.argv[2],
-  port: parseInt(process.argv[3]),
-  username: process.argv[4] ? process.argv[4] : 'gps',
-  password: process.argv[5]
-})
+/**
+ * @param {import('mineflayer').Bot} bot
+ */
+module.exports = (bot) => {
+  // Carrega o plugin pathfinder dentro deste módulo para garantir que as dependências existam
+  bot.loadPlugin(pathfinder)
 
-const RANGE_GOAL = 1 // get within this radius of the player
+  // Espera o bot spawnar para inicializar os movimentos (física)
+  bot.once('spawn', () => {
+    const defaultMove = new Movements(bot)
 
-bot.loadPlugin(pathfinder)
+    bot.on('chat', (username, message) => {
+      if (username === bot.username) return
+      if (message !== 'come') return
+      const target = bot.players[username]?.entity
+      if (!target) {
+        bot.chat("I don't see you !")
+        return
+      }
+      const { x: playerX, y: playerY, z: playerZ } = target.position
 
-bot.once('spawn', () => {
-  const defaultMove = new Movements(bot)
-
-  bot.on('chat', (username, message) => {
-    if (username === bot.username) return
-    if (message !== 'come') return
-    const target = bot.players[username]?.entity
-    if (!target) {
-      bot.chat("I don't see you !")
-      return
-    }
-    const { x: playerX, y: playerY, z: playerZ } = target.position
-
-    bot.pathfinder.setMovements(defaultMove)
-    bot.pathfinder.setGoal(new GoalNear(playerX, playerY, playerZ, RANGE_GOAL))
+      bot.pathfinder.setMovements(defaultMove)
+      bot.pathfinder.setGoal(new GoalNear(playerX, playerY, playerZ, RANGE_GOAL))
+      
+      bot.chat(`Coming to you, ${username}!`)
+    })
   })
-})
+}

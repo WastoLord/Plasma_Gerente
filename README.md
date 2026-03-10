@@ -1,8 +1,30 @@
-## 🤖 Gerente da Loja Plasma
+# 🤖 Gerente da Loja Plasma
 
-O **Gerente Plasma** é um bot automatizado responsável pela venda, gestão e controle de bots operacionais (Workers) no servidor, com sistema de negociação segura, pagamentos parciais, anti-spam e histórico completo de clientes.
+![Node.js](https://img.shields.io/badge/Node.js-v18%2B-green?logo=node.js)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-yellow?logo=javascript)
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-brightgreen)
+
+Bot automatizado responsável pela **venda, gestão e controle de bots operacionais (Workers)**, com sistema de negociação segura, pagamentos parciais, anti-spam e histórico completo de clientes.
 
 Toda a comunicação com jogadores ocorre **exclusivamente via /tell**, evitando interferência no chat global.
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+📁 Plasma_Gerente
+├── core/              # Núcleo do sistema
+├── systems/           # Módulos de funcionalidades
+├── painel/            # Painel administrativo
+├── V2/                # Segunda versão em desenvolvimento
+├── plasma_gerente.js  # Arquivo principal
+├── worker_loader.js   # Carregador de workers
+├── worker_logic.js    # Lógica dos workers
+├── WORKER.md          # Documentação dos workers
+└── package.json
+```
 
 ---
 
@@ -12,76 +34,74 @@ Os **Bots Operacionais Plasma (Workers)** são os bots que realizam a função c
 
 O **Gerente Plasma** é responsável por:
 
-* iniciar os workers (via sessões tmux)
-* encerrar automaticamente ao expirar
-* renovar quando contratado novamente
-* manter isolamento entre clientes
-* garantir funcionamento durante o período contratado
+- Iniciar os workers (via sessões tmux)
+- Encerrar automaticamente ao expirar
+- Renovar quando contratado novamente
+- Manter isolamento entre clientes
+- Garantir funcionamento durante o período contratado
 
-⚠️ O jogador **não interage diretamente** com os workers.
-Toda comunicação, pagamentos e status passam pelo **Gerente**.
+> ⚠️ O jogador **não interage diretamente** com os workers. Toda comunicação, pagamentos e status passam pelo **Gerente**.
 
 ---
 
 ## 🎮 Comandos para Jogadores (via /tell)
 
-| Comando                | Função                                   |
-| ---------------------- | ---------------------------------------- |
-| `qualquer mensagem`    | Inicia o atendimento                     |
-| `negociar`             | Inicia a negociação do bot               |
-| `confirmar`            | Confirma o interesse e aguarda pagamento |
-| `saldo`                | Consulta o saldo acumulado atual         |
-| `tempo`                | Mostra quanto tempo resta do bot         |
-| `status`               | Mesmo que `tempo`                        |
-| `meu bot`              | Mesmo que `tempo`                        |
-| `devolver`             | Devolve saldo acumulado (se houver)      |
-| `preco` *(se ativado)* | Mostra o valor do aluguel                |
+| Comando | Função |
+|---------|--------|
+| `qualquer mensagem` | Inicia o atendimento |
+| `negociar` | Inicia a negociação do bot |
+| `confirmar` | Confirma o interesse e aguarda pagamento |
+| `saldo` | Consulta o saldo acumulado atual |
+| `tempo` / `status` / `meu bot` | Mostra quanto tempo resta do bot |
+| `devolver` | Devolve saldo acumulado (se houver) |
+| `preco` *(se ativado)* | Mostra o valor do aluguel |
 
-📌 O jogador pode pagar **aos poucos**.
-O valor é acumulado automaticamente até atingir o valor do bot.
+> 📌 O jogador pode pagar **aos poucos**. O valor é acumulado automaticamente até atingir o valor do bot.
 
 ---
 
 ## 🛡️ Proteções Automáticas
 
-* Anti-spam (10 mensagens/min → bloqueio 5 min)
-* Pagamentos parciais acumulados (Troco fica salvo)
-* Cancelamento automático de negociação por inatividade
-* Expiração de saldo acumulado (2 dias)
-* Comunicação restrita a /tell
+- Anti-spam (10 mensagens/min → bloqueio 5 min)
+- Pagamentos parciais acumulados (troco salvo automaticamente)
+- Cancelamento automático de negociação por inatividade
+- Expiração de saldo acumulado (2 dias)
+- Comunicação restrita a /tell
 
 ---
 
 ## 👑 Comandos de Administrador (Terminal)
 
-Executados diretamente no terminal onde o gerente está rodando.
-
-| Comando               | Função                      |
-| --------------------- | --------------------------- |
-| `teste <nick> <dias>` | Concede bot de teste        |
-| `verificar`           | Restaura bots ativos do DB  |
-| `bots`                | Lista bots em execução      |
-| `pendentes`           | Lista negociações pendentes |
-| `reload`              | Recarrega o DB do disco     |
-| `exit`                | Encerra o gerente           |
+| Comando | Função |
+|---------|--------|
+| `teste <nick> <dias>` | Concede bot de teste |
+| `verificar` | Restaura bots ativos do banco de dados |
+| `bots` | Lista bots em execução |
+| `pendentes` | Lista negociações pendentes |
+| `reload` | Recarrega o banco de dados do disco |
+| `exit` | Encerra o gerente |
 
 ---
 
 ## 🛠️ Requisitos e Instalação
 
-Para que o Gerente consiga criar os Workers, o ambiente (VPS) precisa de:
+**Dependências:**
+- Node.js v18 ou superior
+- TMUX instalado (essencial para rodar bots em background)
 
-1.  **Node.js** (v18 ou superior)
-2.  **TMUX** instalado (Essencial para rodar bots em background)
-    * Ubuntu/Debian: `sudo apt install tmux`
+```bash
+# Instalar tmux (Ubuntu/Debian)
+sudo apt install tmux
 
-### Inicialização Segura
-O bot exige a senha definida via variável de ambiente.
+# Instalar dependências do projeto
+npm install
+```
+
+**Inicialização:**
 
 ```bash
 export BOT_PASSWORD='SuaSenhaDoLogin'
 node plasma_gerente.js
-
 ```
 
 ---
@@ -90,29 +110,40 @@ node plasma_gerente.js
 
 Cada bot de cliente roda em uma sessão `tmux` isolada.
 
-* **Listar sessões ativas:** `tmux ls`
-* **Ver console de um cliente:** `tmux attach -t plasma_nick`
-* **Sair do console (Detach):** `CTRL+B` depois `D`
+```bash
+# Listar sessões ativas
+tmux ls
+
+# Ver console de um cliente
+tmux attach -t plasma_nick
+
+# Sair do console (Detach)
+CTRL+B → D
+```
 
 ---
 
 ## 🗃️ Banco de Dados
 
-O sistema mantém registros persistentes em `plasma_db.json` de:
+O sistema mantém registros persistentes em `plasma_db.json`:
 
-* clientes ativos e datas de vencimento
-* negociações em andamento
-* saldos acumulados (em centavos)
-* reembolsos e histórico
+- Clientes ativos e datas de vencimento
+- Negociações em andamento
+- Saldos acumulados (em centavos)
+- Reembolsos e histórico
+
+> ⚠️ O arquivo `plasma_db.json` contém dados sensíveis e **não deve ser commitado**. Já está no `.gitignore`.
 
 ---
 
-## 📎 Informações do Bot Operacional Plasma (Workers)
+## 📎 Documentação dos Workers
 
-Para detalhes técnicos, comandos internos e comportamento dos **Bots Operacionais**, consulte:
+Para detalhes técnicos, comandos internos e comportamento dos Bots Operacionais, consulte:
 
-[WORKER.md](WORKER.md)
+👉 [WORKER.md](./WORKER.md)
 
-```
+---
 
-```
+## 📄 Licença
+
+MIT — veja [LICENSE](./LICENSE) para detalhes.
